@@ -1,0 +1,4 @@
+{
+  "extends": "@reka/tooling/tsconfig",
+  "include": ["src"]
+}

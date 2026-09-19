@@ -1,0 +1,31 @@
+{
+  "name": "reka",
+  "private": true,
+  "version": "0.0.0",
+  "packageManager": "pnpm@11.3.0",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @reka/web --filter @reka/api dev",
+    "dev:web": "pnpm --filter @reka/web dev",
+    "dev:api": "pnpm --filter @reka/api dev",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "pnpm -r test",
+    "db:up": "docker compose -f infra/compose/compose.yaml up -d postgres",
+    "db:down": "docker compose -f infra/compose/compose.yaml down",
+    "db:generate": "pnpm --filter @reka/api db:generate",
+    "db:migrate": "pnpm --filter @reka/api db:migrate"
+  },
+  "devDependencies": {
+    "@reka/tooling": "workspace:*",
+    "eslint": "^10.11.0",
+    "prettier": "^3.9.8",
+    "typescript": "5.9.3"
+  },
+  "prettier": "@reka/tooling/prettier"
+}

@@ -1,0 +1,3 @@
+{
+  "extends": "@reka/tooling/tsconfig"
+}

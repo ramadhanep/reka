@@ -1,0 +1,35 @@
+name: reka
+
+# Default group matches the Lite deployment profile: PostgreSQL only.
+# Optional services join through compose profiles:
+#   docker compose up -d postgres                       # Lite
+#   docker compose --profile standard up -d              # Standard (+ redis)
+#
+# The `enterprise` and `observability` profiles are deferred to ROADMAP Stage 6
+# (optional infrastructure) and defined when those services are introduced.
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: reka
+      POSTGRES_PASSWORD: reka
+      POSTGRES_DB: reka
+    ports:
+      - '5432:5432'
+    volumes:
+      - reka_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U reka -d reka']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    profiles: ['standard']
+    ports:
+      - '6379:6379'
+
+volumes:
+  reka_pgdata:
