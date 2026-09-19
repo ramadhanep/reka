@@ -16,3 +16,39 @@ export interface ApiError {
   message: string
   details?: unknown
 }
+
+export type ModuleCategory = 'platform' | 'business'
+
+export interface ModuleMenuItem {
+  id: string
+  label: string
+  path: string
+  icon?: string
+  order?: number
+}
+
+export interface RekaModule {
+  id: string
+  version: string
+  displayName: string
+  description?: string
+  category: ModuleCategory
+  dependencies: string[]
+  permissions?: string[]
+  routes?: string[]
+  menus?: ModuleMenuItem[]
+  migrations?: string[]
+}
+
+export interface ModuleSummary {
+  id: string
+  version: string
+  displayName: string
+  description?: string
+  category: ModuleCategory
+  dependencies: string[]
+  permissions: string[]
+  routes: string[]
+  menus: ModuleMenuItem[]
+  enabled: boolean
+}

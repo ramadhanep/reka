@@ -102,6 +102,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@reka/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@reka/ui':
         specifier: workspace:*
         version: link:../../packages/ui

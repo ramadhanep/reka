@@ -19,6 +19,8 @@ export const permissionCatalog: Record<string, string> = {
   'organization.members.read': 'List organization members',
   'organization.members.manage': 'Add and update organization members',
   'organization.roles.read': 'List organization roles',
+  'module.read': 'Read module status',
+  'module.manage': 'Enable and disable modules',
 }
 
 @Injectable()

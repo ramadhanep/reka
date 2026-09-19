@@ -32,7 +32,7 @@ Goal: established the shared business platform.
 - server-side authorization guards
 - initial bootstrap setup path
 
-## Stage 2 — Module System [PENDING]
+## Stage 2 — Module System [COMPLETED]
 
 Goal: enable feature modules cleanly.
 
