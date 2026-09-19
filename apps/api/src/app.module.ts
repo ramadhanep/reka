@@ -1,8 +1,23 @@
 import { Module } from '@nestjs/common'
+import { ThrottlerModule } from '@nestjs/throttler'
 import { DatabaseModule } from './common/database.module.js'
 import { HealthModule } from './health/health.module.js'
+import { AccessModule } from './modules/access/access.module.js'
+import { AuditModule } from './modules/audit/audit.module.js'
+import { CoreModule } from './modules/core/core.module.js'
+import { IdentityModule } from './modules/identity/identity.module.js'
+import { OrganizationModule } from './modules/organization/organization.module.js'
 
 @Module({
-  imports: [DatabaseModule, HealthModule],
+  imports: [
+    DatabaseModule,
+    ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 100 }]),
+    AuditModule,
+    HealthModule,
+    AccessModule,
+    IdentityModule,
+    OrganizationModule,
+    CoreModule,
+  ],
 })
 export class AppModule {}

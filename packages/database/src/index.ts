@@ -1,9 +1,11 @@
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres'
 import { Pool } from 'pg'
 
+export type Db = NodePgDatabase
+
 export interface Database {
   pool: Pool
-  db: NodePgDatabase
+  db: Db
   close: () => Promise<void>
 }
 

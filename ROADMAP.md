@@ -18,24 +18,21 @@ Goal: create a boring, reliable development platform.
 - configuration system
 - base design system
 
-## Stage 1 — Platform Core
+## Stage 1 — Platform Core [COMPLETED]
 
-Goal: establish the shared business platform.
+Goal: established the shared business platform.
 
 - organization
 - users
-- departments
-- teams
 - local authentication
 - sessions
 - roles
 - permissions
-- settings
 - audit
-- file metadata
-- notification center
+- server-side authorization guards
+- initial bootstrap setup path
 
-## Stage 2 — Module System
+## Stage 2 — Module System [PENDING]
 
 Goal: enable feature modules cleanly.
 

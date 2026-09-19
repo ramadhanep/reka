@@ -29,7 +29,24 @@ export default tseslint.config(
     },
   },
   {
-    files: ['**/pages/**/*.vue', '**/layouts/**/*.vue'],
+    files: ['**/*.vue'],
+    rules: {
+      // TypeScript-aware linting replaces no-undef; Nuxt auto-imports make it noisy.
+      'no-undef': 'off',
+    },
+  },
+  {
+    files: ['**/*.ts', '**/*.js', '**/*.mjs', '**/*.vue'],
+    rules: {
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
+      '@typescript-eslint/no-explicit-any': 'warn',
+    },
+  },
+  {
+    files: ['**/pages/**/*.vue', '**/layouts/**/*.vue', '**/components/**/*.vue'],
     rules: { 'vue/multi-word-component-names': 'off' },
   },
   prettier,
