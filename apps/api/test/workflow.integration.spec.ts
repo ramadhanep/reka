@@ -14,7 +14,6 @@ import { ensurePermissions, findPermissionsByKeys } from '../src/modules/access/
 import { auditLogs } from '../src/modules/audit/audit-log.schema.js'
 import { ModuleRegistryService } from '../src/modules/module-registry/module-registry.service.js'
 import { UserService } from '../src/modules/identity/user.service.js'
-import { WorkflowService } from '../src/modules/workflow/workflow.service.js'
 import {
   extractSessionCookie,
   migrateTestDatabase,
