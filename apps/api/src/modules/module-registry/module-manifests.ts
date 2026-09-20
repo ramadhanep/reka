@@ -100,11 +100,32 @@ export const platformManifests: RekaModule[] = [
 
 export const procurementModuleManifest: RekaModule = {
   id: 'procurement',
-  version: '0.1.0',
+  version: '0.2.0',
   displayName: 'Procurement',
-  description: 'Purchase requests, vendor approvals, and purchase orders',
+  description: 'Purchase requests, vendor approvals, purchase orders, and goods receipt',
   category: 'business',
   dependencies: ['organization', 'access', 'audit', 'workflow'],
+  permissions: [
+    'procurement.vendor.read',
+    'procurement.vendor.manage',
+    'procurement.purchase_request.read',
+    'procurement.purchase_request.create',
+    'procurement.purchase_request.submit',
+    'procurement.purchase_request.approve',
+    'procurement.purchase_request.reject',
+    'procurement.purchase_order.read',
+    'procurement.purchase_order.create',
+    'procurement.purchase_order.issue',
+    'procurement.goods_receipt.read',
+    'procurement.goods_receipt.create',
+  ],
+  routes: [
+    '/procurement',
+    '/procurement/vendors',
+    '/procurement/purchase-requests',
+    '/procurement/purchase-orders',
+    '/procurement/goods-receipts',
+  ],
   menus: [
     {
       id: 'procurement-menu',

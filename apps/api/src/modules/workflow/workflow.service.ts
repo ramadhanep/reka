@@ -13,12 +13,17 @@ import type {
   WorkflowTransitionHistorySummary,
   WorkflowTransitionSummary,
 } from '@reka/contracts'
-import type { Database } from '@reka/database'
+import type { Database, Db } from '@reka/database'
 import { DATABASE } from '../../common/database.token.js'
 import { AccessService } from '../access/access.service.js'
 import { AuditService } from '../audit/audit.service.js'
 import { findMemberByOrgAndUser } from '../organization/member.repo.js'
 import { WorkflowNotificationHook } from './workflow-notification.hook.js'
+import type {
+  WorkflowInstanceRow,
+  WorkflowStateRow,
+  WorkflowTransitionRow,
+} from './workflow.schema.js'
 import {
   validateWorkflowDefinitionGraph,
   type StateDraftInput,
@@ -85,7 +90,7 @@ export class WorkflowService {
 
   async createDefinition(
     input: CreateWorkflowDefinitionDto,
-    actorId: string,
+    actorId: string | null,
     organizationId?: string | null,
   ): Promise<WorkflowDefinitionSummary> {
     const trimmedKey = input.key?.trim().toLowerCase()
@@ -206,12 +211,18 @@ export class WorkflowService {
   async updateDefinition(
     id: string,
     input: UpdateWorkflowDefinitionDto,
-    actorId: string,
+    actorId: string | null,
     organizationId?: string | null,
   ): Promise<WorkflowDefinitionSummary> {
     const definition = await findWorkflowDefinitionById(this.database.db, id)
     if (!definition) {
       throw new NotFoundException(`Workflow definition '${id}' not found`)
+    }
+
+    if (organizationId && definition.organizationId === null) {
+      throw new ForbiddenException(
+        'Cannot modify a system-wide workflow definition from an organization scope',
+      )
     }
 
     if (
@@ -301,6 +312,12 @@ export class WorkflowService {
       throw new NotFoundException(`Workflow definition '${id}' not found`)
     }
 
+    if (organizationId && source.organizationId === null) {
+      throw new ForbiddenException(
+        'Cannot version a system-wide workflow definition from an organization scope',
+      )
+    }
+
     if (organizationId && source.organizationId && source.organizationId !== organizationId) {
       throw new ForbiddenException('Cannot version workflow definition of another organization')
     }
@@ -373,10 +390,30 @@ export class WorkflowService {
     })
   }
 
+  /**
+   * Ensures a system-wide (global) workflow definition exists and is active for
+   * the given key. Business modules call this during bootstrap to register their
+   * generic lifecycle through the workflow engine. Actor is optional and null
+   * for system-initiated seeds.
+   */
+  async ensureGlobalDefinition(
+    input: CreateWorkflowDefinitionDto,
+    actorId: string | null,
+  ): Promise<WorkflowDefinitionSummary> {
+    const key = input.key.trim().toLowerCase()
+    const existing = await findLatestActiveDefinitionByKey(this.database.db, key, null)
+    if (existing) {
+      return this.getDefinition(existing.id, null)
+    }
+    const draft = await this.createDefinition(input, actorId, null)
+    return this.updateDefinition(draft.id, { status: 'active' }, actorId, null)
+  }
+
   async createInstance(
     input: CreateWorkflowInstanceDto,
     actorId: string,
     organizationId: string,
+    db?: Db,
   ): Promise<WorkflowInstanceSummary> {
     if (!organizationId) {
       throw new BadRequestException('Organization ID is required')
@@ -388,7 +425,7 @@ export class WorkflowService {
       throw new BadRequestException('Subject ID is required')
     }
 
-    return this.database.db.transaction(async (tx) => {
+    const run = async (tx: Db): Promise<WorkflowInstanceSummary> => {
       let definition = input.workflowDefinitionId
         ? await findWorkflowDefinitionById(tx, input.workflowDefinitionId)
         : null
@@ -478,7 +515,12 @@ export class WorkflowService {
         createdAt: instance.createdAt.toISOString(),
         updatedAt: instance.updatedAt.toISOString(),
       }
-    })
+    }
+
+    if (db) {
+      return run(db)
+    }
+    return this.database.db.transaction(async (tx) => run(tx as unknown as Db))
   }
 
   async getInstance(id: string, organizationId: string): Promise<WorkflowInstanceSummary> {
@@ -555,13 +597,22 @@ export class WorkflowService {
     dto: ExecuteTransitionDto,
     actorId: string,
     organizationId: string,
+    db?: Db,
   ): Promise<WorkflowInstanceSummary> {
     const trimmedKey = transitionKey?.trim().toLowerCase()
     if (!trimmedKey) {
       throw new BadRequestException('Transition key is required')
     }
 
-    const result = await this.database.db.transaction(async (tx) => {
+    const run = async (
+      tx: Db,
+    ): Promise<{
+      instance: WorkflowInstanceRow
+      currentState: WorkflowStateRow
+      toState: WorkflowStateRow
+      transition: WorkflowTransitionRow
+      availableTransitions: WorkflowTransitionRow[]
+    }> => {
       // 1. Acquire row lock on workflow instance
       const instance = await findWorkflowInstanceForUpdate(tx, instanceId)
       if (!instance) {
@@ -692,7 +743,11 @@ export class WorkflowService {
         transition,
         availableTransitions,
       }
-    })
+    }
+
+    const result = db
+      ? await run(db)
+      : await this.database.db.transaction(async (tx) => run(tx as unknown as Db))
 
     // 11. Dispatch in-process notification event
     await this.notificationHook.emitTransition({

@@ -61,19 +61,19 @@ Goal: make business processes reusable.
 - audit integration
 - transition history
 
-## Stage 4 — Procurement
+## Stage 4 — Procurement [COMPLETED]
 
 Goal: first production-quality business module.
 
 - vendors
-- products
 - purchase requests
-- approvals
+- workflow-driven approvals
 - purchase orders
 - goods receipt
-- procurement dashboard
 - audit
-- notifications
+- organization isolation & RBAC
+- concurrency-safe numbering and mutations
+- procurement UI
 
 Demo story:
 
@@ -81,10 +81,8 @@ Demo story:
 Employee
   -> Purchase Request
   -> Manager Approval
-  -> Procurement Review
   -> Purchase Order
   -> Goods Receipt
-  -> Asset Assignment
 ```
 
 ## Stage 5 — Operational Foundation

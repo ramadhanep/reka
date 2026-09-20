@@ -5,3 +5,4 @@ dist/
 .opencode/
 pnpm-lock.yaml
 coverage/
+apps/api/drizzle/meta/

@@ -29,6 +29,13 @@
       "when": 1789833105359,
       "tag": "0003_loose_paibok",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789878992578,
+      "tag": "0004_petite_prodigy",
+      "breakpoints": true
     }
   ]
 }

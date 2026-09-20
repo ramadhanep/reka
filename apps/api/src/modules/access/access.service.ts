@@ -26,6 +26,18 @@ export const permissionCatalog: Record<string, string> = {
   'workflow.instance.read': 'Read workflow instances and history',
   'workflow.instance.create': 'Create workflow instances',
   'workflow.instance.transition': 'Execute workflow transitions',
+  'procurement.vendor.read': 'Read vendors',
+  'procurement.vendor.manage': 'Create and update vendors',
+  'procurement.purchase_request.read': 'Read purchase requests',
+  'procurement.purchase_request.create': 'Create purchase requests',
+  'procurement.purchase_request.submit': 'Submit purchase requests',
+  'procurement.purchase_request.approve': 'Approve purchase requests',
+  'procurement.purchase_request.reject': 'Reject purchase requests',
+  'procurement.purchase_order.read': 'Read purchase orders',
+  'procurement.purchase_order.create': 'Create purchase orders',
+  'procurement.purchase_order.issue': 'Issue purchase orders',
+  'procurement.goods_receipt.read': 'Read goods receipts',
+  'procurement.goods_receipt.create': 'Create goods receipts',
 }
 
 @Injectable()

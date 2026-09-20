@@ -84,7 +84,10 @@ export function canManageModules(userPermissions: string[] | undefined, roleKey?
   return userPermissions?.includes('module.manage') === true
 }
 
-export function canManageWorkflows(userPermissions: string[] | undefined, roleKey?: string): boolean {
+export function canManageWorkflows(
+  userPermissions: string[] | undefined,
+  roleKey?: string,
+): boolean {
   if (roleKey === 'owner') {
     return true
   }
