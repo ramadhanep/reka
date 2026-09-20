@@ -8,11 +8,8 @@ import {
 import type { OnModuleInit } from '@nestjs/common'
 import type { Database, Db } from '@reka/database'
 import { DATABASE } from '../../common/database.token.js'
-import { permissionCatalog } from '../access/access.service.js'
-import { ensurePermissions, findPermissionsByKeys } from '../access/permission.repo.js'
-import { findSystemRoleByKey, grantRolePermissions } from '../access/role.repo.js'
+import { AccessService, permissionCatalog } from '../access/access.service.js'
 import { AuditService } from '../audit/audit.service.js'
-import { organizations } from '../organization/organization.schema.js'
 import { WorkflowService } from '../workflow/workflow.service.js'
 import {
   allocateDocumentNumber,
@@ -153,6 +150,7 @@ export class ProcurementService implements OnModuleInit {
     @Inject(DATABASE) private readonly database: Database,
     private readonly workflowService: WorkflowService,
     private readonly audit: AuditService,
+    private readonly access: AccessService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -160,28 +158,16 @@ export class ProcurementService implements OnModuleInit {
   }
 
   /**
-   * Idempotently seeds the procurement permissions (and grants them to the
+   * Idempotently seeds the procurement permissions (granting them to the
    * owner role of every existing organization) and registers the generic
    * purchase-request workflow definition through the workflow module.
    * Kept as a public method so tests can re-seed after truncation.
    */
   async seed(): Promise<void> {
-    const db = this.database.db
     const permissionKeys = Object.keys(permissionCatalog).filter((key) =>
       key.startsWith('procurement.'),
     )
-    await ensurePermissions(db, permissionKeys, (key) => permissionCatalog[key] ?? key)
-    const permissionRows = await findPermissionsByKeys(db, permissionKeys)
-    const permissionIds = permissionRows.map((row) => row.id)
-
-    const orgRows = await db.select({ id: organizations.id }).from(organizations)
-    for (const org of orgRows) {
-      const ownerRole = await findSystemRoleByKey(db, org.id, 'owner')
-      if (ownerRole) {
-        await grantRolePermissions(db, ownerRole.id, permissionIds)
-      }
-    }
-
+    await this.access.backfillOwnerRolePermissions(this.database.db, permissionKeys)
     await this.workflowService.ensureGlobalDefinition(procurementWorkflowDefinitionInput(), null)
   }
 

@@ -1,21 +1,19 @@
 {
-  "name": "@reka/worker",
+  "name": "@reka/jobs",
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
   "scripts": {
-    "dev": "tsx watch src/main.ts",
-    "start": "tsx src/main.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@reka/config": "workspace:*",
     "@reka/database": "workspace:*",
-    "@reka/jobs": "workspace:*"
+    "drizzle-orm": "^0.45.2"
   },
   "devDependencies": {
     "@types/node": "^26.6.2",
-    "tsx": "^4.23.13",
     "typescript": "5.9.3"
   }
 }

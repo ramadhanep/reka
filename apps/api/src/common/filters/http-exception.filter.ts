@@ -3,6 +3,7 @@ import type { ArgumentsHost, ExceptionFilter } from '@nestjs/common'
 import { randomUUID } from 'node:crypto'
 import type { FastifyReply } from 'fastify'
 import type { ApiErrorCode } from '@reka/contracts'
+import { getRequestContext } from '../request-context.js'
 
 function codeForStatus(status: number): ApiErrorCode {
   switch (status) {
@@ -18,6 +19,8 @@ function codeForStatus(status: number): ApiErrorCode {
       return 'conflict'
     case HttpStatus.TOO_MANY_REQUESTS:
       return 'rate_limited'
+    case HttpStatus.SERVICE_UNAVAILABLE:
+      return 'unavailable'
     default:
       return 'internal'
   }
@@ -30,7 +33,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp()
     const reply = ctx.getResponse<FastifyReply>()
-    const request = ctx.getRequest<{ headers: Record<string, string | undefined>; id?: string }>()
+    const request = ctx.getRequest<{
+      headers: Record<string, string | undefined>
+      id?: string
+    }>()
 
     const isHttp = exception instanceof HttpException
     const status = isHttp ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR
@@ -55,7 +61,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       }
     }
 
-    const requestId = request.headers['x-request-id'] ?? randomUUID()
+    const requestId = getRequestContext().requestId ?? request.id ?? randomUUID()
     if (status >= 500) {
       this.logger.error(
         `request=${requestId} status=${status} ${message}`,
@@ -63,6 +69,6 @@ export class HttpExceptionFilter implements ExceptionFilter {
       )
     }
 
-    reply.status(status).send({ code: codeForStatus(status), message, details })
+    reply.status(status).send({ code: codeForStatus(status), message, details, requestId })
   }
 }

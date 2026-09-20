@@ -2,10 +2,12 @@ import { Inject, Injectable } from '@nestjs/common'
 import type { OnModuleInit } from '@nestjs/common'
 import type { Database, Db } from '@reka/database'
 import { DATABASE } from '../../common/database.token.js'
+import { organizations } from '../organization/organization.schema.js'
 import { ensurePermissions, findPermissionsByKeys } from './permission.repo.js'
 import {
   createRole,
   findPermissionKeysByRoleIds,
+  findSystemRoleByKey,
   grantRolePermissions,
   type RoleRow,
 } from './role.repo.js'
@@ -80,5 +82,27 @@ export class AccessService implements OnModuleInit {
 
   async getRolePermissionKeys(db: Db, roleId: string): Promise<string[]> {
     return findPermissionKeysByRoleIds(db, [roleId])
+  }
+
+  /**
+   * Ensures the given permission keys exist and grants them to the `owner`
+   * role of every existing organization. Idempotent and non-destructive; used
+   * by business modules at bootstrap so pre-existing organizations receive new
+   * platform permissions without manual role edits.
+   */
+  async backfillOwnerRolePermissions(db: Db, keys: string[]): Promise<void> {
+    if (keys.length === 0) return
+    await ensurePermissions(db, keys, (key) => permissionCatalog[key] ?? key)
+    const permissionRows = await findPermissionsByKeys(db, keys)
+    const permissionIds = permissionRows.map((row) => row.id)
+    if (permissionIds.length === 0) return
+
+    const orgRows = await db.select({ id: organizations.id }).from(organizations)
+    for (const org of orgRows) {
+      const owner = await findSystemRoleByKey(db, org.id, OWNER_ROLE_KEY)
+      if (owner) {
+        await grantRolePermissions(db, owner.id, permissionIds)
+      }
+    }
   }
 }

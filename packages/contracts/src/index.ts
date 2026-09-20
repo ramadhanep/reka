@@ -9,6 +9,7 @@ export type ApiErrorCode =
   | 'not_found'
   | 'conflict'
   | 'rate_limited'
+  | 'unavailable'
   | 'internal'
 
 export interface ApiError {
