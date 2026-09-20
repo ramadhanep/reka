@@ -21,6 +21,11 @@ export const permissionCatalog: Record<string, string> = {
   'organization.roles.read': 'List organization roles',
   'module.read': 'Read module status',
   'module.manage': 'Enable and disable modules',
+  'workflow.definition.read': 'Read workflow definitions',
+  'workflow.definition.manage': 'Create and manage workflow definitions',
+  'workflow.instance.read': 'Read workflow instances and history',
+  'workflow.instance.create': 'Create workflow instances',
+  'workflow.instance.transition': 'Execute workflow transitions',
 }
 
 @Injectable()

@@ -64,6 +64,30 @@ export const moduleRegistryManifest: RekaModule = {
   permissions: ['module.read', 'module.manage'],
 }
 
+export const workflowModuleManifest: RekaModule = {
+  id: 'workflow',
+  version: '0.1.0',
+  displayName: 'Workflow Engine',
+  description: 'Generic state machine and workflow execution engine',
+  category: 'platform',
+  dependencies: ['core', 'access', 'audit', 'organization'],
+  permissions: [
+    'workflow.definition.read',
+    'workflow.definition.manage',
+    'workflow.instance.read',
+    'workflow.instance.create',
+    'workflow.instance.transition',
+  ],
+  menus: [
+    {
+      id: 'settings-workflows-menu',
+      label: 'Workflows',
+      path: '/settings/workflows',
+      order: 50,
+    },
+  ],
+}
+
 export const platformManifests: RekaModule[] = [
   coreModuleManifest,
   identityModuleManifest,
@@ -71,6 +95,7 @@ export const platformManifests: RekaModule[] = [
   organizationModuleManifest,
   auditModuleManifest,
   moduleRegistryManifest,
+  workflowModuleManifest,
 ]
 
 export const procurementModuleManifest: RekaModule = {

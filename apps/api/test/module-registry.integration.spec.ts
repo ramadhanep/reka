@@ -251,15 +251,25 @@ describe('module registry integration (API, authorization, dependencies, lifecyc
   describe('dependency validation and lifecycle', () => {
     it('blocks enabling a module when required dependencies are unavailable', async () => {
       const admin = await asAdmin()
-      // procurement depends on ['organization', 'access', 'audit', 'workflow']
-      // workflow is not implemented/registered
-      const res = await api('POST', `${API_PREFIX}/modules/procurement/enable`, {
+      // inventory depends on ['organization', 'assets'] where assets is disabled
+      const res = await api('POST', `${API_PREFIX}/modules/inventory/enable`, {
         cookie: admin.cookie,
       })
 
       expect(res.status).toBe(400)
       expect(res.json.message).toContain('missing or disabled dependencies')
-      expect(res.json.message).toContain('workflow (missing)')
+      expect(res.json.message).toContain('assets (disabled)')
+    })
+
+    it('allows enabling procurement now that workflow platform module is satisfied', async () => {
+      const admin = await asAdmin()
+      // procurement depends on ['organization', 'access', 'audit', 'workflow'] - all are satisfied platform modules
+      const res = await api('POST', `${API_PREFIX}/modules/procurement/enable`, {
+        cookie: admin.cookie,
+      })
+
+      expect(res.status).toBe(200)
+      expect(res.json.module.enabled).toBe(true)
     })
 
     it('blocks disabling a required platform module', async () => {

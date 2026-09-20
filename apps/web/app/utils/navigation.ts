@@ -20,6 +20,13 @@ export const platformNavItems: NavItem[] = [
     category: 'platform',
     moduleId: 'module-registry',
   },
+  {
+    id: 'nav-settings-workflows',
+    label: 'Workflows',
+    path: '/settings/workflows',
+    category: 'platform',
+    moduleId: 'workflow',
+  },
 ]
 
 export const knownBusinessNavItems: NavItem[] = [
@@ -75,4 +82,11 @@ export function canManageModules(userPermissions: string[] | undefined, roleKey?
     return true
   }
   return userPermissions?.includes('module.manage') === true
+}
+
+export function canManageWorkflows(userPermissions: string[] | undefined, roleKey?: string): boolean {
+  if (roleKey === 'owner') {
+    return true
+  }
+  return userPermissions?.includes('workflow.definition.manage') === true
 }

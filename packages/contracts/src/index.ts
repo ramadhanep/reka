@@ -52,3 +52,78 @@ export interface ModuleSummary {
   menus: ModuleMenuItem[]
   enabled: boolean
 }
+
+export type WorkflowDefinitionStatus = 'draft' | 'active' | 'archived'
+
+export type WorkflowInstanceStatus = 'active' | 'completed' | 'canceled'
+
+export interface WorkflowStateSummary {
+  id: string
+  workflowDefinitionId: string
+  key: string
+  name: string
+  isInitial: boolean
+  isTerminal: boolean
+  metadata?: Record<string, unknown>
+  createdAt: string
+  updatedAt: string
+}
+
+export interface WorkflowTransitionSummary {
+  id: string
+  workflowDefinitionId: string
+  key: string
+  name: string
+  fromStateId: string
+  toStateId: string
+  requiredPermission?: string | null
+  metadata?: Record<string, unknown>
+  createdAt: string
+  updatedAt: string
+}
+
+export interface WorkflowDefinitionSummary {
+  id: string
+  organizationId?: string | null
+  key: string
+  name: string
+  description?: string | null
+  version: number
+  status: WorkflowDefinitionStatus
+  states?: WorkflowStateSummary[]
+  transitions?: WorkflowTransitionSummary[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface WorkflowInstanceSummary {
+  id: string
+  organizationId: string
+  workflowDefinitionId: string
+  subjectType: string
+  subjectId: string
+  currentStateId: string
+  currentStateKey?: string
+  currentStateName?: string
+  status: WorkflowInstanceStatus
+  availableTransitions?: WorkflowTransitionSummary[]
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface WorkflowTransitionHistorySummary {
+  id: string
+  instanceId: string
+  organizationId: string
+  transitionId?: string | null
+  transitionKey: string
+  fromStateId?: string | null
+  fromStateKey: string
+  toStateId?: string | null
+  toStateKey: string
+  actorId: string
+  comment?: string | null
+  metadata?: Record<string, unknown>
+  createdAt: string
+}

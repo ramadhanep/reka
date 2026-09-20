@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canManageModules, resolveNavigation } from './navigation.js'
+import { canManageModules, canManageWorkflows, resolveNavigation } from './navigation.js'
 
 describe('resolveNavigation', () => {
   it('shows platform navigation items by default when no business modules are enabled', () => {
@@ -8,6 +8,7 @@ describe('resolveNavigation', () => {
 
     expect(labels).toContain('Organizations')
     expect(labels).toContain('Modules')
+    expect(labels).toContain('Workflows')
     expect(labels).not.toContain('Procurement')
     expect(labels).not.toContain('Assets')
     expect(labels).not.toContain('Finance')
@@ -20,6 +21,7 @@ describe('resolveNavigation', () => {
 
     expect(labels).toContain('Organizations')
     expect(labels).toContain('Modules')
+    expect(labels).toContain('Workflows')
     expect(labels).toContain('Assets')
     expect(labels).not.toContain('Procurement')
     expect(labels).not.toContain('Finance')
@@ -50,5 +52,20 @@ describe('canManageModules permission evaluation', () => {
     expect(canManageModules(['organization.read'], 'member')).toBe(false)
     expect(canManageModules([], 'member')).toBe(false)
     expect(canManageModules(undefined, undefined)).toBe(false)
+  })
+})
+
+describe('canManageWorkflows permission evaluation', () => {
+  it('allows owner role', () => {
+    expect(canManageWorkflows([], 'owner')).toBe(true)
+  })
+
+  it('allows user with explicit workflow.definition.manage permission', () => {
+    expect(canManageWorkflows(['workflow.definition.manage'], 'member')).toBe(true)
+  })
+
+  it('denies user without workflow.definition.manage permission or owner role', () => {
+    expect(canManageWorkflows(['workflow.definition.read'], 'member')).toBe(false)
+    expect(canManageWorkflows([], 'member')).toBe(false)
   })
 })

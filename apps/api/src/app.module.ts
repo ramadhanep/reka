@@ -8,6 +8,7 @@ import { CoreModule } from './modules/core/core.module.js'
 import { IdentityModule } from './modules/identity/identity.module.js'
 import { ModuleRegistryModule } from './modules/module-registry/module-registry.module.js'
 import { OrganizationModule } from './modules/organization/organization.module.js'
+import { WorkflowModule } from './modules/workflow/workflow.module.js'
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { OrganizationModule } from './modules/organization/organization.module.j
     OrganizationModule,
     CoreModule,
     ModuleRegistryModule,
+    WorkflowModule,
   ],
 })
 export class AppModule {}
