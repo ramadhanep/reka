@@ -1,7 +1,6 @@
 {
   "extends": "@reka/tooling/tsconfig",
   "compilerOptions": {
-    "lib": ["ES2023", "DOM"],
     "outDir": "./dist",
     "rootDir": "./src",
     "types": ["node"]

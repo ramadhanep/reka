@@ -1,0 +1,28 @@
+{
+  "name": "@reka/telemetry",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/sdk-node": "^0.56.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.53.0",
+    "@opentelemetry/exporter-trace-otlp-grpc": "^0.56.0",
+    "@opentelemetry/exporter-metrics-otlp-grpc": "^0.56.0",
+    "@opentelemetry/exporter-logs-otlp-grpc": "^0.56.0",
+    "@opentelemetry/sdk-metrics": "^1.28.0",
+    "@opentelemetry/sdk-logs": "^0.56.0",
+    "@opentelemetry/resources": "^1.28.0",
+    "@opentelemetry/semantic-conventions": "^1.28.0",
+    "@reka/config": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "typescript": "5.9.3"
+  }
+}

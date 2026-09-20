@@ -5,6 +5,7 @@ allowBuilds:
   '@scarf/scarf': false
   '@swc/core': true
   esbuild: true
+  protobufjs: true
 minimumReleaseAgeExclude:
   - '@types/node@26.6.2'
   - eslint@10.11.0

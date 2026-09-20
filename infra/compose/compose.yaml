@@ -1,12 +1,10 @@
 name: reka
 
-# Default group matches the Lite deployment profile: PostgreSQL only.
-# Optional services join through compose profiles:
+# Deployment profiles:
 #   docker compose up -d postgres                       # Lite
 #   docker compose --profile standard up -d              # Standard (+ redis)
-#
-# The `enterprise` and `observability` profiles are deferred to ROADMAP Stage 6
-# (optional infrastructure) and defined when those services are introduced.
+#   docker compose --profile enterprise up -d            # Enterprise (+ redis, minio, keycloak)
+#   docker compose --profile observability up -d         # Observability (+ otel-collector, prometheus, grafana, loki, tempo)
 
 services:
   postgres:
@@ -27,9 +25,122 @@ services:
 
   redis:
     image: redis:7-alpine
-    profiles: ['standard']
+    profiles: ['standard', 'enterprise', 'observability']
     ports:
       - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    profiles: ['enterprise']
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: reka
+      MINIO_ROOT_PASSWORD: reka123456
+      MINIO_BROWSER: 'off'
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - reka_minio:/data
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    profiles: ['enterprise']
+    command: start-dev
+    environment:
+      KC_BOOTSTRAP_ADMIN_USER: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_DB: dev-file
+    ports:
+      - '8080:8080'
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:8080/health/ready']
+      interval: 15s
+      timeout: 10s
+      retries: 20
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.124.0
+    profiles: ['observability']
+    command: ['--config=/etc/otel-collector-config.yaml']
+    ports:
+      - '4317:4317' # OTLP gRPC
+      - '4318:4318' # OTLP HTTP
+      - '8888:8888' # Prometheus metrics
+      - '13133:13133' # health check
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    depends_on:
+      - tempo
+      - loki
+
+  prometheus:
+    image: prom/prometheus:v2.54.0
+    profiles: ['observability']
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    ports:
+      - '9090:9090'
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - reka_prometheus:/prometheus
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    profiles: ['observability']
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_INSTALL_PLUGINS: grafana-loki-datasource,grafana-tempo-datasource
+    ports:
+      - '3001:3000'
+    volumes:
+      - ./grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro
+      - reka_grafana:/var/lib/grafana
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+
+  loki:
+    image: grafana/loki:3.1.0
+    profiles: ['observability']
+    command: ['-config.file=/etc/loki/local-config.yaml']
+    ports:
+      - '3100:3100'
+    volumes:
+      - ./loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - reka_loki:/loki
+
+  tempo:
+    image: grafana/tempo:2.5.0
+    profiles: ['observability']
+    command:
+      - '-config.file=/etc/tempo.yaml'
+    ports:
+      - '3200:3200' # Tempo
+      - '4317:4317' # OTLP gRPC (also on otel-collector)
+      - '9411:9411' # Zipkin
+    volumes:
+      - ./tempo.yaml:/etc/tempo.yaml:ro
+      - reka_tempo:/tmp/tempo
 
 volumes:
   reka_pgdata:
+  reka_minio:
+  reka_prometheus:
+  reka_grafana:
+  reka_loki:
+  reka_tempo:

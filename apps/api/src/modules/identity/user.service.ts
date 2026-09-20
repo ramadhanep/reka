@@ -3,7 +3,14 @@ import { randomBytes } from 'node:crypto'
 import { type Database, type Db } from '@reka/database'
 import { DATABASE } from '../../common/database.token.js'
 import { PasswordService } from './password.service.js'
-import { countUsers, createUser, findUserByEmail, findUserById, type UserRow } from './user.repo.js'
+import {
+  countUsers,
+  createUser,
+  findUserByEmail,
+  findUserById,
+  findUserByProviderId,
+  type UserRow,
+} from './user.repo.js'
 
 const DUMMY_PASSWORD_HASH =
   '$argon2id$v=19$m=19456,t=3,p=1$1kddLgivMHyyA/tbisWKVw$LMN9j4Ue8hMZOnb6wDZgUZ9dIWx9q54rfT4whxFSGmQ'
@@ -31,8 +38,31 @@ export class UserService {
     return createUser(db, { ...input, passwordHash })
   }
 
+  async createWithOIDC(
+    input: {
+      email: string
+      displayName: string
+      provider: string
+      providerId: string
+    },
+    db: Db = this.database.db,
+  ): Promise<UserRow> {
+    const unusableHash = await this.password.hash(randomBytes(24).toString('base64url'))
+    return createUser(db, {
+      email: input.email.toLowerCase(),
+      passwordHash: unusableHash,
+      displayName: input.displayName,
+      provider: input.provider,
+      providerId: input.providerId,
+    })
+  }
+
   async findByEmail(email: string): Promise<UserRow | undefined> {
     return findUserByEmail(this.database.db, email.toLowerCase())
+  }
+
+  async findByProviderId(provider: string, providerId: string): Promise<UserRow | undefined> {
+    return findUserByProviderId(this.database.db, provider, providerId)
   }
 
   async findById(id: string): Promise<UserRow | undefined> {

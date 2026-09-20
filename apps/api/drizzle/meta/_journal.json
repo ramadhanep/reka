@@ -43,6 +43,13 @@
       "when": 1789880171633,
       "tag": "0005_milky_sage",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789883225113,
+      "tag": "0006_fat_sentinel",
+      "breakpoints": true
     }
   ]
 }

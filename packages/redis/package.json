@@ -1,5 +1,5 @@
 {
-  "name": "@reka/storage",
+  "name": "@reka/redis",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -9,8 +9,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.680.0",
-    "@aws-sdk/s3-request-presigner": "^3.680.0"
+    "@reka/config": "workspace:*",
+    "ioredis": "^5.4.1"
   },
   "devDependencies": {
     "@types/node": "^26.6.2",

@@ -1,3 +1,5 @@
+export const SESSION_COOKIE = 'reka_session'
+
 import type { CookieSerializeOptions } from '@fastify/cookie'
 import { SESSION_DURATION_MS } from './session.service.js'
 
