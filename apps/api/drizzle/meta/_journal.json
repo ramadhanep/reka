@@ -57,6 +57,13 @@
       "when": 1789886533184,
       "tag": "0007_assets_module",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789975413436,
+      "tag": "0008_red_solo",
+      "breakpoints": true
     }
   ]
 }

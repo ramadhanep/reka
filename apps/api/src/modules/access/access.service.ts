@@ -49,6 +49,13 @@ export const permissionCatalog: Record<string, string> = {
   'assets.return': 'Return assets',
   'assets.maintain': 'Put assets in maintenance',
   'assets.retire': 'Retire assets',
+  'inventory.read': 'Read inventory items, warehouses, locations, and stock',
+  'inventory.item.manage': 'Create and update inventory items',
+  'inventory.warehouse.manage': 'Create and update warehouses and locations',
+  'inventory.stock.receive': 'Receive stock from goods receipts',
+  'inventory.stock.transfer': 'Transfer stock between locations',
+  'inventory.stock.adjust': 'Adjust stock balances',
+  'inventory.stock.issue': 'Issue stock',
 }
 
 @Injectable()

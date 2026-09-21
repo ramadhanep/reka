@@ -229,6 +229,18 @@ export async function findPurchaseOrderItemsByIds(
   return db.select().from(purchaseOrderItems).where(inArray(purchaseOrderItems.id, ids))
 }
 
+export async function findPurchaseOrderItemById(
+  db: Db,
+  id: string,
+): Promise<PurchaseOrderItemRow | undefined> {
+  const rows = await db
+    .select()
+    .from(purchaseOrderItems)
+    .where(eq(purchaseOrderItems.id, id))
+    .limit(1)
+  return rows[0]
+}
+
 export async function incrementReceivedQuantity(
   db: Db,
   itemId: string,
@@ -300,6 +312,18 @@ export async function findGoodsReceiptItems(
     .from(goodsReceiptItems)
     .where(eq(goodsReceiptItems.goodsReceiptId, goodsReceiptId))
     .orderBy(goodsReceiptItems.createdAt)
+}
+
+export async function findGoodsReceiptItemById(
+  db: Db,
+  id: string,
+): Promise<GoodsReceiptItemRow | undefined> {
+  const rows = await db
+    .select()
+    .from(goodsReceiptItems)
+    .where(eq(goodsReceiptItems.id, id))
+    .limit(1)
+  return rows[0]
 }
 
 export async function listGoodsReceipts(

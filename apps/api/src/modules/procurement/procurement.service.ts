@@ -34,9 +34,11 @@ import {
   createVendorIn,
   findGoodsReceiptById,
   findGoodsReceiptItems,
+  findGoodsReceiptItemById,
   findPurchaseOrderById,
   findPurchaseOrderForUpdate,
   findPurchaseOrderItems,
+  findPurchaseOrderItemById,
   findPurchaseOrderItemsByIds,
   findPurchaseRequestById,
   findPurchaseRequestForUpdate,
@@ -757,6 +759,47 @@ export class ProcurementService implements OnModuleInit {
     })
   }
 
+  /**
+   * Read facade used by the Inventory module to validate that a goods receipt
+   * item is eligible for being received into stock. All validation happens
+   * against the owning Procurement tables inside the caller-provided
+   * transaction (db) so the Inventory operation stays atomic with it.
+   */
+  async getGoodsReceiptItemForStock(
+    db: Db,
+    organizationId: string,
+    goodsReceiptItemId: string,
+  ): Promise<{
+    goodsReceipt: GoodsReceiptType
+    goodsReceiptItem: GoodsReceiptItemRowType
+    purchaseOrder: PurchaseOrderType
+    purchaseOrderItem: PurchaseOrderItemRowType
+  }> {
+    const goodsReceiptItem = await findGoodsReceiptItemById(db, goodsReceiptItemId)
+    if (!goodsReceiptItem) {
+      throw new NotFoundException('Goods receipt item not found')
+    }
+    const goodsReceipt = await findGoodsReceiptById(db, goodsReceiptItem.goodsReceiptId)
+    if (!goodsReceipt || goodsReceipt.organizationId !== organizationId) {
+      throw new NotFoundException('Goods receipt item not found')
+    }
+    const purchaseOrder = await findPurchaseOrderById(db, goodsReceipt.purchaseOrderId)
+    if (!purchaseOrder || purchaseOrder.organizationId !== organizationId) {
+      throw new NotFoundException('Purchase order not found')
+    }
+    if (purchaseOrder.status === PURCHASE_ORDER_STATUS.CANCELLED) {
+      throw new BadRequestException('Cannot receive stock against a cancelled purchase order')
+    }
+    const purchaseOrderItem = await findPurchaseOrderItemById(
+      db,
+      goodsReceiptItem.purchaseOrderItemId,
+    )
+    if (!purchaseOrderItem) {
+      throw new NotFoundException('Purchase order item not found')
+    }
+    return { goodsReceipt, goodsReceiptItem, purchaseOrder, purchaseOrderItem }
+  }
+
   // ---- helpers ----
 
   private async requireVendor(id: string, organizationId: string) {
@@ -923,3 +966,4 @@ type VendorRowType = import('./procurement.schema.js').VendorRow
 type PurchaseRequestRowType = import('./procurement.schema.js').PurchaseRequestRow
 type PurchaseRequestItemRowType = import('./procurement.schema.js').PurchaseRequestItemRow
 type PurchaseOrderItemRowType = import('./procurement.schema.js').PurchaseOrderItemRow
+type GoodsReceiptItemRowType = import('./procurement.schema.js').GoodsReceiptItemRow

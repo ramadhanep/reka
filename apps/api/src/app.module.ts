@@ -8,6 +8,7 @@ import { AuditModule } from './modules/audit/audit.module.js'
 import { AssetsModule } from './modules/assets/assets.module.js'
 import { CoreModule } from './modules/core/core.module.js'
 import { IdentityModule } from './modules/identity/identity.module.js'
+import { InventoryModule } from './modules/inventory/inventory.module.js'
 import { ModuleRegistryModule } from './modules/module-registry/module-registry.module.js'
 import { OrganizationModule } from './modules/organization/organization.module.js'
 import { ProcurementModule } from './modules/procurement/procurement.module.js'
@@ -28,6 +29,7 @@ import { WorkflowModule } from './modules/workflow/workflow.module.js'
     WorkflowModule,
     ProcurementModule,
     AssetsModule,
+    InventoryModule,
   ],
 })
 export class AppModule {}

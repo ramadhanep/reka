@@ -186,6 +186,15 @@ export const inventoryModuleManifest: RekaModule = {
   description: 'Stock levels, warehouse management, and item catalogs',
   category: 'business',
   dependencies: ['organization', 'assets'],
+  permissions: [
+    'inventory.read',
+    'inventory.item.manage',
+    'inventory.warehouse.manage',
+    'inventory.stock.receive',
+    'inventory.stock.transfer',
+    'inventory.stock.adjust',
+    'inventory.stock.issue',
+  ],
   menus: [
     {
       id: 'inventory-menu',
