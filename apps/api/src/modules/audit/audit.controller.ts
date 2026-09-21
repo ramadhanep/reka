@@ -1,6 +1,9 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common'
+import { Controller, Get, Query } from '@nestjs/common'
 import { IsOptional, IsString, IsISO8601 } from 'class-validator'
-import { createOrgPermissionGuard } from '../../common/org-permission.guard.js'
+import {
+  createOrgPermissionGuard,
+  orgPermissionsDecorator,
+} from '../../common/org-permission.guard.js'
 import { AuditService, type AuditLogView } from './audit.service.js'
 
 const AuditReadGuard = createOrgPermissionGuard('audit.read')
@@ -39,7 +42,7 @@ export class AuditController {
   constructor(private readonly audit: AuditService) {}
 
   @Get()
-  @UseGuards(AuditReadGuard)
+  @orgPermissionsDecorator('audit.read', AuditReadGuard, 'audit.read')
   async listAuditLogs(@Query() query: QueryAuditLogsDto): Promise<{ logs: AuditLogView[] }> {
     const logs = await this.audit.listAuditLogs({
       organizationId: query.organizationId,

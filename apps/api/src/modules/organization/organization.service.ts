@@ -186,6 +186,12 @@ export class OrganizationService {
       userId: user.id,
       roleId: role.id,
     })
+    // Pending users receive a single-use activation token so the invitation can
+    // actually be completed. The token is returned to the caller (the managing
+    // admin) because this self-hosted build has no mail provider; it is never
+    // logged (pino redacts `*.token`).
+    const activation =
+      user.status === 'pending' ? await this.users.createActivationToken(user.id) : null
     await this.audit.record({
       actorId,
       organizationId,
@@ -201,6 +207,9 @@ export class OrganizationService {
       roleId: role.id,
       roleKey: role.key,
       status: member.status,
+      activation: activation
+        ? { token: activation.token, expiresAt: activation.expiresAt.toISOString() }
+        : null,
     }
   }
 

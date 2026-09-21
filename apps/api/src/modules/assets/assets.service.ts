@@ -62,6 +62,8 @@ export interface AssetAssignmentView {
   organizationId: string
   assetId: string
   assigneeUserId: string
+  assigneeName: string | null
+  assigneeEmail: string | null
   assignedAt: string
   returnedAt: string | null
   assignedBy: string
@@ -525,12 +527,19 @@ export class AssetsService implements OnModuleInit {
     }
   }
 
-  private toAssignmentView(row: typeof assetAssignments.$inferSelect): AssetAssignmentView {
+  private toAssignmentView(
+    row: typeof assetAssignments.$inferSelect & {
+      assigneeName?: string | null
+      assigneeEmail?: string | null
+    },
+  ): AssetAssignmentView {
     return {
       id: row.id,
       organizationId: row.organizationId,
       assetId: row.assetId,
       assigneeUserId: row.assigneeUserId,
+      assigneeName: row.assigneeName ?? null,
+      assigneeEmail: row.assigneeEmail ?? null,
       assignedAt: row.assignedAt.toISOString(),
       returnedAt: row.returnedAt?.toISOString() ?? null,
       assignedBy: row.assignedBy,

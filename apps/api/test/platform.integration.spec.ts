@@ -428,4 +428,72 @@ describe('platform integration (identity, organization, authorization, audit)', 
       expect(actions).toContain('auth.logout')
     })
   })
+
+  describe('audit read endpoint', () => {
+    it('requires authentication (401 without a session, not a permanent 401)', async () => {
+      const res = await api('GET', `${API_PREFIX}/audit?organizationId=${crypto.randomUUID()}`)
+      expect(res.status).toBe(401)
+    })
+
+    it('lets an owner read organization-scoped audit logs', async () => {
+      const admin = await asAdmin()
+      const updated = await api('PATCH', `${API_PREFIX}/organizations/${admin.orgId}`, {
+        payload: { name: 'Acme Updated' },
+        cookie: admin.cookie,
+      })
+      expect(updated.status).toBe(200)
+
+      const res = await api('GET', `${API_PREFIX}/audit?organizationId=${admin.orgId}`, {
+        cookie: admin.cookie,
+      })
+      expect(res.status).toBe(200)
+      expect(res.json.logs.some((log: any) => log.action === 'organization.updated')).toBe(true)
+    })
+
+    it('forbids a member without audit.read', async () => {
+      const admin = await asAdmin()
+      const viewerCookie = await actor('member', 'auditor@example.com', admin)
+      const res = await api('GET', `${API_PREFIX}/audit?organizationId=${admin.orgId}`, {
+        cookie: viewerCookie,
+      })
+      expect(res.status).toBe(403)
+    })
+  })
+
+  describe('member activation', () => {
+    it('issues a single-use activation token that activates the pending account', async () => {
+      const admin = await asAdmin()
+      const roles = await rolesFor(admin.orgId, admin.cookie)
+      const member = roles.find((r) => r.key === 'member')
+
+      const invite = await api('POST', `${API_PREFIX}/organizations/${admin.orgId}/members`, {
+        payload: { email: 'newbie@example.com', roleId: member.id },
+        cookie: admin.cookie,
+      })
+      expect(invite.status).toBe(201)
+      const token = invite.json.member.activation.token
+      expect(typeof token).toBe('string')
+      expect(token.length).toBeGreaterThan(20)
+
+      const before = await api('POST', `${API_PREFIX}/auth/login`, {
+        payload: { email: 'newbie@example.com', password: 'not-set-yet-1' },
+      })
+      expect(before.status).toBe(401)
+
+      const activate = await api('POST', `${API_PREFIX}/auth/activate`, {
+        payload: { token, password: 'newbie-password-1' },
+      })
+      expect(activate.status).toBe(200)
+
+      const login = await api('POST', `${API_PREFIX}/auth/login`, {
+        payload: { email: 'newbie@example.com', password: 'newbie-password-1' },
+      })
+      expect(login.status).toBe(200)
+
+      const reuse = await api('POST', `${API_PREFIX}/auth/activate`, {
+        payload: { token, password: 'another-password-1' },
+      })
+      expect(reuse.status).toBe(400)
+    })
+  })
 })

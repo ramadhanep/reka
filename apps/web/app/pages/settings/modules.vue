@@ -117,6 +117,7 @@
 
 <script setup lang="ts">
 definePageMeta({ middleware: 'auth' })
+const api = useApi()
 
 const { modules, loading, error, fetchModules, enableModule, disableModule } = useModules()
 const actionError = ref<string | null>(null)
@@ -125,7 +126,7 @@ const pendingActionId = ref<string | null>(null)
 // Check user permissions via organizations
 const { data: orgData } = await useAsyncData(
   'user-orgs-settings',
-  () => $fetch<{ organizations: any[] }>('/api/v1/organizations'),
+  () => api<{ organizations: any[] }>('/api/v1/organizations'),
   { default: () => ({ organizations: [] }) },
 )
 

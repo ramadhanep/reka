@@ -44,8 +44,6 @@ Environment defaults in `packages/config` target the local Docker PostgreSQL, so
 `.env` file is required for the default development flow. Override via `.env` or shell
 environment when needed.
 
-**Note:** If the API fails to start with an OpenAPI/Swagger hang, set `OPENAPI_ENABLED=false` in `.env` until the `@fastify/static` dependency issue is resolved.
-
 ## Environment
 
 Use:

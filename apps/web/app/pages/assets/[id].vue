@@ -59,7 +59,9 @@
         <div class="mt-3 divide-y divide-slate-100">
           <div v-for="h in history" :key="h.id" class="py-2 text-xs">
             <div class="flex justify-between">
-              <span class="font-medium text-slate-900">User: {{ h.assigneeUserId }}</span>
+              <span class="font-medium text-slate-900">
+                {{ h.assigneeName || h.assigneeEmail || h.assigneeUserId }}
+              </span>
               <span class="text-slate-500">{{ new Date(h.assignedAt).toLocaleDateString() }}</span>
             </div>
             <div v-if="h.returnedAt" class="text-slate-500">
@@ -107,6 +109,7 @@
 definePageMeta({ middleware: ['auth', 'module-enabled'] })
 const route = useRoute()
 const assetId = route.params.id as string
+const api = useApi()
 
 const {
   fetchAsset,
@@ -137,7 +140,7 @@ onMounted(async () => {
   if (activeOrg) {
     loadingMembers.value = true
     try {
-      const membersRes = await $fetch<{ members: any[] }>(
+      const membersRes = await api<{ members: any[] }>(
         `/api/v1/organizations/${activeOrg.id}/members`,
       )
       orgMembers.value = membersRes.members.map((m) => ({

@@ -21,6 +21,8 @@ export interface AssetAssignment {
   organizationId: string
   assetId: string
   assigneeUserId: string
+  assigneeName?: string | null
+  assigneeEmail?: string | null
   assignedAt: string
   returnedAt: string | null
   assignedBy: string
@@ -66,12 +68,13 @@ export const useAssets = () => {
   const loading = useState<boolean>('assets:loading', () => false)
   const error = useState<string | null>('assets:error', () => null)
   const actionMessage = useState<string | null>('assets:action-message', () => null)
+  const api = useApi()
 
   async function fetchAssets() {
     loading.value = true
     error.value = null
     const res = await run<{ assets: Asset[] }>(
-      () => $fetch('/api/v1/assets'),
+      () => api('/api/v1/assets'),
       (m) => (error.value = m),
       'Failed to load assets',
     )
@@ -83,7 +86,7 @@ export const useAssets = () => {
     loading.value = true
     error.value = null
     const res = await run<{ asset: Asset }>(
-      () => $fetch(`/api/v1/assets/${id}`),
+      () => api(`/api/v1/assets/${id}`),
       (m) => (error.value = m),
       'Failed to load asset',
     )
@@ -95,7 +98,7 @@ export const useAssets = () => {
     loading.value = true
     error.value = null
     const res = await run<{ history: AssetAssignment[] }>(
-      () => $fetch(`/api/v1/assets/${id}/history`),
+      () => api(`/api/v1/assets/${id}/history`),
       (m) => (error.value = m),
       'Failed to load asset history',
     )
@@ -111,7 +114,7 @@ export const useAssets = () => {
     clearAction()
     const res = await run(
       () =>
-        $fetch('/api/v1/assets', {
+        api('/api/v1/assets', {
           method: 'POST',
           body,
         }),
@@ -126,7 +129,7 @@ export const useAssets = () => {
     clearAction()
     const res = await run(
       () =>
-        $fetch(`/api/v1/assets/${id}`, {
+        api(`/api/v1/assets/${id}`, {
           method: 'PATCH',
           body,
         }),
@@ -141,7 +144,7 @@ export const useAssets = () => {
     clearAction()
     const res = await run(
       () =>
-        $fetch(`/api/v1/assets/${id}/assign`, {
+        api(`/api/v1/assets/${id}/assign`, {
           method: 'POST',
           body,
         }),
@@ -156,7 +159,7 @@ export const useAssets = () => {
     clearAction()
     const res = await run(
       () =>
-        $fetch(`/api/v1/assets/${id}/return`, {
+        api(`/api/v1/assets/${id}/return`, {
           method: 'POST',
           body,
         }),
@@ -170,7 +173,7 @@ export const useAssets = () => {
   async function startMaintenance(id: string): Promise<ActionResult> {
     clearAction()
     const res = await run(
-      () => $fetch(`/api/v1/assets/${id}/maintenance`, { method: 'POST' }),
+      () => api(`/api/v1/assets/${id}/maintenance`, { method: 'POST' }),
       (m) => (actionMessage.value = m),
       'Could not start maintenance',
     )
@@ -181,7 +184,7 @@ export const useAssets = () => {
   async function retireAsset(id: string): Promise<ActionResult> {
     clearAction()
     const res = await run(
-      () => $fetch(`/api/v1/assets/${id}/retire`, { method: 'POST' }),
+      () => api(`/api/v1/assets/${id}/retire`, { method: 'POST' }),
       (m) => (actionMessage.value = m),
       'Could not retire asset',
     )

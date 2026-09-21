@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "demo:seed": "tsx scripts/seed-demo.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",
@@ -41,8 +42,10 @@
     "@swc/core": "^1.16.2",
     "@types/node": "^26.6.2",
     "@types/pg": "^8.23.1",
+    "dotenv": "^18.0.1",
     "drizzle-kit": "^0.31.10",
     "pg": "^8.23.0",
+    "tsx": "^4.23.13",
     "typescript": "5.9.3",
     "unplugin-swc": "^1.6.0",
     "vitest": "^5.0.1"

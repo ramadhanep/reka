@@ -75,6 +75,7 @@
 <script setup lang="ts">
 const route = useRoute()
 const id = computed(() => route.params.id as string)
+const api = useApi()
 const auth = useAuth()
 
 const {
@@ -84,7 +85,7 @@ const {
   refresh,
 } = await useAsyncData(
   () => `org-${id.value}`,
-  () => $fetch<any>(`/api/v1/organizations/${id.value}`),
+  () => api<any>(`/api/v1/organizations/${id.value}`),
   { watch: [id] },
 )
 
@@ -105,7 +106,7 @@ async function saveOrg() {
   orgError.value = null
   saving.value = true
   try {
-    await $fetch(`/api/v1/organizations/${id.value}`, {
+    await api(`/api/v1/organizations/${id.value}`, {
       method: 'PATCH',
       body: { name: editName.value },
     })
@@ -119,14 +120,14 @@ async function saveOrg() {
 
 const { data: members, refresh: refreshMembers } = await useAsyncData(
   () => `org-${id.value}-members`,
-  () => $fetch<{ members: any[] }>(`/api/v1/organizations/${id.value}/members`),
+  () => api<{ members: any[] }>(`/api/v1/organizations/${id.value}/members`),
   { watch: [id] },
 )
 const membersPending = ref(false)
 
 const { data: roles } = await useAsyncData(
   () => `org-${id.value}-roles`,
-  () => $fetch<{ roles: any[] }>(`/api/v1/organizations/${id.value}/roles`),
+  () => api<{ roles: any[] }>(`/api/v1/organizations/${id.value}/roles`),
   { watch: [id] },
 )
 
@@ -143,7 +144,7 @@ async function addMember() {
   memberError.value = null
   addingMember.value = true
   try {
-    await $fetch(`/api/v1/organizations/${id.value}/members`, {
+    await api(`/api/v1/organizations/${id.value}/members`, {
       method: 'POST',
       body: { email: newMemberEmail.value, roleId: newMemberRoleId.value },
     })
@@ -158,7 +159,7 @@ async function addMember() {
 async function changeRole(member: any, roleId: string) {
   memberError.value = null
   try {
-    await $fetch(`/api/v1/organizations/${id.value}/members/${member.id}`, {
+    await api(`/api/v1/organizations/${id.value}/members/${member.id}`, {
       method: 'PATCH',
       body: { roleId },
     })

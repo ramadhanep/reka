@@ -13,11 +13,8 @@ core
 organization
 identity
 access
-settings
 workflow
 audit
-notification
-files
 module-registry
 ```
 
@@ -28,10 +25,6 @@ procurement
 assets
 hr
 inventory
-finance
-projects
-helpdesk
-crm
 ```
 
 ## Module Lifecycle

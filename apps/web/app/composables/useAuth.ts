@@ -13,11 +13,12 @@ export const useAuth = () => {
     () => 'loading',
   )
   const error = useState<string | null>('auth:error', () => null)
+  const api = useApi()
 
   async function refresh() {
     status.value = 'loading'
     try {
-      const res = await $fetch<{ user: RekaUser }>('/api/v1/auth/session')
+      const res = await api<{ user: RekaUser }>('/api/v1/auth/session')
       user.value = res.user
       status.value = 'authenticated'
       error.value = null
@@ -30,7 +31,7 @@ export const useAuth = () => {
   async function login(email: string, password: string) {
     error.value = null
     try {
-      const res = await $fetch<{ user: RekaUser }>('/api/v1/auth/login', {
+      const res = await api<{ user: RekaUser }>('/api/v1/auth/login', {
         method: 'POST',
         body: { email, password },
       })
@@ -45,7 +46,7 @@ export const useAuth = () => {
 
   async function logout() {
     try {
-      await $fetch('/api/v1/auth/logout', { method: 'POST' })
+      await api('/api/v1/auth/logout', { method: 'POST' })
     } finally {
       user.value = null
       status.value = 'unauthenticated'

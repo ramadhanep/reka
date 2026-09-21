@@ -40,9 +40,10 @@
 
 <script setup lang="ts">
 definePageMeta({ middleware: 'auth' })
+const api = useApi()
 const { data, pending, error, refresh } = await useAsyncData(
   'organizations',
-  () => $fetch<{ organizations: any[] }>('/api/v1/organizations'),
+  () => api<{ organizations: any[] }>('/api/v1/organizations'),
   { default: () => ({ organizations: [] }) },
 )
 const orgs = computed(() => data.value?.organizations ?? [])
@@ -56,7 +57,7 @@ async function createOrg() {
   createError.value = null
   creating.value = true
   try {
-    await $fetch('/api/v1/organizations', { method: 'POST', body: { name: newName.value } })
+    await api('/api/v1/organizations', { method: 'POST', body: { name: newName.value } })
     newName.value = ''
     showCreate.value = false
     await refresh()

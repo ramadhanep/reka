@@ -45,9 +45,7 @@ reka/
 │   └── tooling/                # shared lint/ts/test config
 │
 ├── infra/
-│   ├── compose/                # Docker Compose profiles
-│   ├── docker/                 # Dockerfiles
-│   └── scripts/                # local/ops scripts
+│   └── compose/                # Docker Compose profiles
 │
 ├── docs/
 ├── AGENTS.md
@@ -136,26 +134,18 @@ src/
 │   ├── organization/
 │   ├── identity/
 │   ├── access/
-│   ├── settings/
 │   ├── workflow/
 │   ├── audit/
-│   ├── notification/
-│   ├── files/
 │   ├── module-registry/
 │   ├── procurement/
 │   ├── assets/
-│   ├── hr/
-│   ├── inventory/
-│   ├── finance/
-│   ├── projects/
-│   ├── helpdesk/
-│   └── crm/
+│   └── inventory/
 └── main.ts
 ```
 
-Platform modules (`core`, `organization`, `identity`, `access`, `settings`, `workflow`, `audit`, `notification`, `files`, `module-registry`) are foundational and always present.
+Platform modules (`core`, `organization`, `identity`, `access`, `workflow`, `audit`, `module-registry`) are foundational and always present.
 
-Business modules (`procurement`, `assets`, `hr`, `inventory`, `finance`, `projects`, `helpdesk`, `crm`) are enable/disable capabilities. See [docs/module-system.md](./docs/module-system.md) for lifecycle and enable/disable semantics.
+Business modules (`procurement`, `assets`, `inventory`) are enable/disable capabilities. See [docs/module-system.md](./docs/module-system.md) for lifecycle and enable/disable semantics. (`hr` is declared in the module registry but not yet implemented.)
 
 A module should own its:
 
@@ -193,7 +183,6 @@ Instead communicate through explicit application services/events/contracts.
 ```text
 procurement -> workflow
 procurement -> audit
-procurement -> notification
 procurement -> organization
 ```
 

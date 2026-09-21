@@ -114,12 +114,13 @@ export const useProcurement = () => {
   const loading = useState<boolean>('procurement:loading', () => false)
   const error = useState<string | null>('procurement:error', () => null)
   const actionMessage = useState<string | null>('procurement:action-message', () => null)
+  const api = useApi()
 
   async function fetchVendors() {
     loading.value = true
     error.value = null
     const res = await run<{ vendors: Vendor[] }>(
-      () => $fetch('/api/v1/vendors'),
+      () => api('/api/v1/vendors'),
       (m) => (error.value = m),
       'Failed to load vendors',
     )
@@ -131,7 +132,7 @@ export const useProcurement = () => {
     loading.value = true
     error.value = null
     const res = await run<{ purchaseRequests: PurchaseRequest[] }>(
-      () => $fetch('/api/v1/purchase-requests'),
+      () => api('/api/v1/purchase-requests'),
       (m) => (error.value = m),
       'Failed to load purchase requests',
     )
@@ -143,7 +144,7 @@ export const useProcurement = () => {
     loading.value = true
     error.value = null
     const res = await run<{ purchaseOrders: PurchaseOrder[] }>(
-      () => $fetch('/api/v1/purchase-orders'),
+      () => api('/api/v1/purchase-orders'),
       (m) => (error.value = m),
       'Failed to load purchase orders',
     )
@@ -155,7 +156,7 @@ export const useProcurement = () => {
     loading.value = true
     error.value = null
     const res = await run<{ goodsReceipts: GoodsReceipt[] }>(
-      () => $fetch('/api/v1/goods-receipts'),
+      () => api('/api/v1/goods-receipts'),
       (m) => (error.value = m),
       'Failed to load goods receipts',
     )
@@ -171,7 +172,7 @@ export const useProcurement = () => {
     clearAction()
     const res = await run(
       () =>
-        $fetch('/api/v1/vendors', {
+        api('/api/v1/vendors', {
           method: 'POST',
           body,
         }),
@@ -186,7 +187,7 @@ export const useProcurement = () => {
     clearAction()
     const res = await run(
       () =>
-        $fetch(`/api/v1/vendors/${id}`, {
+        api(`/api/v1/vendors/${id}`, {
           method: 'PATCH',
           body,
         }),
@@ -201,7 +202,7 @@ export const useProcurement = () => {
     clearAction()
     const res = await run(
       () =>
-        $fetch('/api/v1/purchase-requests', {
+        api('/api/v1/purchase-requests', {
           method: 'POST',
           body,
         }),
@@ -220,7 +221,7 @@ export const useProcurement = () => {
     clearAction()
     const res = await run(
       () =>
-        $fetch(`/api/v1/purchase-requests/${id}/${action}`, {
+        api(`/api/v1/purchase-requests/${id}/${action}`, {
           method: 'POST',
           body,
         }),
@@ -235,7 +236,7 @@ export const useProcurement = () => {
     clearAction()
     const res = await run(
       () =>
-        $fetch('/api/v1/purchase-orders', {
+        api('/api/v1/purchase-orders', {
           method: 'POST',
           body,
         }),
@@ -251,7 +252,7 @@ export const useProcurement = () => {
   async function issueOrder(id: string): Promise<ActionResult> {
     clearAction()
     const res = await run(
-      () => $fetch(`/api/v1/purchase-orders/${id}/issue`, { method: 'POST' }),
+      () => api(`/api/v1/purchase-orders/${id}/issue`, { method: 'POST' }),
       (m) => (actionMessage.value = m),
       'Could not issue purchase order',
     )
@@ -263,7 +264,7 @@ export const useProcurement = () => {
     clearAction()
     const res = await run(
       () =>
-        $fetch('/api/v1/goods-receipts', {
+        api('/api/v1/goods-receipts', {
           method: 'POST',
           body,
         }),

@@ -20,7 +20,7 @@
     "db:down": "docker compose -f infra/compose/compose.yaml down",
     "db:generate": "pnpm --filter @reka/api db:generate",
     "db:migrate": "pnpm --filter @reka/api db:migrate",
-    "demo:seed": "node scripts/seed-demo.js"
+    "demo:seed": "pnpm --filter @reka/api demo:seed"
   },
   "devDependencies": {
     "@reka/tooling": "workspace:*",

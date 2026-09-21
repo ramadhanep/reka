@@ -6,6 +6,7 @@ import { DATABASE } from '../../common/database.token.js'
 import { organizations } from '../organization/organization.schema.js'
 import { organizationMembers } from '../organization/organization-member.schema.js'
 import { ensurePermissions, findPermissionsByKeys } from './permission.repo.js'
+import { MEMBER_ROLE_KEY, OWNER_ROLE_KEY, permissionCatalog } from './permission-catalog.js'
 import {
   createRole,
   findPermissionKeysByRoleIds,
@@ -14,50 +15,7 @@ import {
   type RoleRow,
 } from './role.repo.js'
 
-export const OWNER_ROLE_KEY = 'owner'
-export const MEMBER_ROLE_KEY = 'member'
-
-export const permissionCatalog: Record<string, string> = {
-  'organization.read': 'Read organization details',
-  'organization.update': 'Update organization settings',
-  'organization.members.read': 'List organization members',
-  'organization.members.manage': 'Add and update organization members',
-  'organization.roles.read': 'List organization roles',
-  'module.read': 'Read module status',
-  'module.manage': 'Enable and disable modules',
-  'workflow.definition.read': 'Read workflow definitions',
-  'workflow.definition.manage': 'Create and manage workflow definitions',
-  'workflow.instance.read': 'Read workflow instances and history',
-  'workflow.instance.create': 'Create workflow instances',
-  'workflow.instance.transition': 'Execute workflow transitions',
-  'audit.read': 'Read audit logs',
-  'procurement.vendor.read': 'Read vendors',
-  'procurement.vendor.manage': 'Create and update vendors',
-  'procurement.purchase_request.read': 'Read purchase requests',
-  'procurement.purchase_request.create': 'Create purchase requests',
-  'procurement.purchase_request.submit': 'Submit purchase requests',
-  'procurement.purchase_request.approve': 'Approve purchase requests',
-  'procurement.purchase_request.reject': 'Reject purchase requests',
-  'procurement.purchase_order.read': 'Read purchase orders',
-  'procurement.purchase_order.create': 'Create purchase orders',
-  'procurement.purchase_order.issue': 'Issue purchase orders',
-  'procurement.goods_receipt.read': 'Read goods receipts',
-  'procurement.goods_receipt.create': 'Create goods receipts',
-  'assets.read': 'Read assets',
-  'assets.create': 'Create assets',
-  'assets.update': 'Update assets',
-  'assets.assign': 'Assign assets',
-  'assets.return': 'Return assets',
-  'assets.maintain': 'Put assets in maintenance',
-  'assets.retire': 'Retire assets',
-  'inventory.read': 'Read inventory items, warehouses, locations, and stock',
-  'inventory.item.manage': 'Create and update inventory items',
-  'inventory.warehouse.manage': 'Create and update warehouses and locations',
-  'inventory.stock.receive': 'Receive stock from goods receipts',
-  'inventory.stock.transfer': 'Transfer stock between locations',
-  'inventory.stock.adjust': 'Adjust stock balances',
-  'inventory.stock.issue': 'Issue stock',
-}
+export { MEMBER_ROLE_KEY, OWNER_ROLE_KEY, permissionCatalog } from './permission-catalog.js'
 
 @Injectable()
 export class AccessService implements OnModuleInit {
@@ -69,12 +27,19 @@ export class AccessService implements OnModuleInit {
   }
 
   /**
-   * Backfills platform permissions (module.*, workflow.*, audit.*) to existing
-   * organization owner roles. Called once at startup; idempotent.
+   * Backfills platform permissions (organization.*, module.*, workflow.*,
+   * audit.*) to existing organization owner roles. Called once at startup;
+   * idempotent. Organization permissions are included so owner roles created
+   * before the organization permission set existed (and direct-DB seeded orgs)
+   * receive member/role read+manage capabilities.
    */
   async backfillPlatformPermissions(): Promise<void> {
     const platformKeys = Object.keys(permissionCatalog).filter(
-      (key) => key.startsWith('module.') || key.startsWith('workflow.') || key.startsWith('audit.'),
+      (key) =>
+        key.startsWith('organization.') ||
+        key.startsWith('module.') ||
+        key.startsWith('workflow.') ||
+        key.startsWith('audit.'),
     )
     await this.backfillOwnerRolePermissions(this.database.db, platformKeys)
   }

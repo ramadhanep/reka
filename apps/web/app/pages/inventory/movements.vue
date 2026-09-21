@@ -79,6 +79,7 @@
 definePageMeta({ middleware: ['auth', 'module-enabled'] })
 
 const { movements, loading, error, fetchMovements } = useInventory()
+const api = useApi()
 const typeFilter = ref('')
 const movementTypes = [
   'RECEIPT',
@@ -106,9 +107,7 @@ function applyFilter() {
   }
   loading.value = true
   error.value = null
-  $fetch<{ movements: typeof movements.value }>(
-    `/api/v1/inventory/movements?type=${typeFilter.value}`,
-  )
+  api<{ movements: typeof movements.value }>(`/api/v1/inventory/movements?type=${typeFilter.value}`)
     .then((res) => (movements.value = res.movements))
     .catch(
       (e: { data?: { message?: string } }) =>

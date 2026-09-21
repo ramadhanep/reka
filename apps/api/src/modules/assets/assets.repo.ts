@@ -1,5 +1,6 @@
 import { and, desc, eq, isNull, sql } from 'drizzle-orm'
 import type { Db } from '@reka/database'
+import { usersTable } from '../identity/user.schema.js'
 import {
   assets,
   assetAssignments,
@@ -8,6 +9,11 @@ import {
   type AssetAssignmentInsert,
   type AssetAssignmentRow,
 } from './assets.schema.js'
+
+export interface AssetAssignmentWithAssignee extends AssetAssignmentRow {
+  assigneeEmail: string | null
+  assigneeName: string | null
+}
 
 export async function createAsset(db: Db, input: AssetInsert): Promise<AssetRow> {
   const [row] = await db.insert(assets).values(input).returning()
@@ -138,10 +144,15 @@ export async function listAssetHistory(
   db: Db,
   organizationId: string,
   assetId: string,
-): Promise<AssetAssignmentRow[]> {
-  return db
-    .select()
+): Promise<AssetAssignmentWithAssignee[]> {
+  const rows = await db
+    .select({
+      assignment: assetAssignments,
+      assigneeEmail: usersTable.email,
+      assigneeName: usersTable.displayName,
+    })
     .from(assetAssignments)
+    .leftJoin(usersTable, eq(assetAssignments.assigneeUserId, usersTable.id))
     .where(
       and(
         eq(assetAssignments.organizationId, organizationId),
@@ -149,6 +160,11 @@ export async function listAssetHistory(
       ),
     )
     .orderBy(desc(assetAssignments.createdAt))
+  return rows.map((row) => ({
+    ...row.assignment,
+    assigneeEmail: row.assigneeEmail,
+    assigneeName: row.assigneeName,
+  }))
 }
 
 export async function listAssignmentsByAssignee(

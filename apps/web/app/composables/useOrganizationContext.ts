@@ -11,6 +11,7 @@ export const useOrganizationContext = () => {
   const activeOrgId = useState<string | null>('org-context:active', () => null)
   const loading = useState<boolean>('org-context:loading', () => false)
   const error = useState<string | null>('org-context:error', () => null)
+  const api = useApi()
 
   const activeOrganization = computed(() => {
     return organizations.value.find((org) => org.id === activeOrgId.value) || null
@@ -20,7 +21,7 @@ export const useOrganizationContext = () => {
     loading.value = true
     error.value = null
     try {
-      const res = await $fetch<{ organizations: Organization[] }>('/api/v1/organizations')
+      const res = await api<{ organizations: Organization[] }>('/api/v1/organizations')
       organizations.value = res.organizations
       if (!activeOrgId.value && res.organizations.length > 0) {
         activeOrgId.value = res.organizations[0]!.id

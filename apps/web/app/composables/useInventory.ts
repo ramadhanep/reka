@@ -100,12 +100,13 @@ export const useInventory = () => {
   const loading = useState<boolean>('inventory:loading', () => false)
   const error = useState<string | null>('inventory:error', () => null)
   const actionMessage = useState<string | null>('inventory:action-message', () => null)
+  const api = useApi()
 
   async function fetchItems() {
     loading.value = true
     error.value = null
     const res = await run<{ items: InventoryItem[] }>(
-      () => $fetch('/api/v1/inventory/items'),
+      () => api('/api/v1/inventory/items'),
       (m) => (error.value = m),
       'Failed to load inventory items',
     )
@@ -117,7 +118,7 @@ export const useInventory = () => {
     loading.value = true
     error.value = null
     const res = await run<{ warehouses: Warehouse[] }>(
-      () => $fetch('/api/v1/inventory/warehouses'),
+      () => api('/api/v1/inventory/warehouses'),
       (m) => (error.value = m),
       'Failed to load warehouses',
     )
@@ -128,7 +129,7 @@ export const useInventory = () => {
   async function fetchLocations() {
     loading.value = true
     const res = await run<{ locations: Location[] }>(
-      () => $fetch('/api/v1/inventory/locations'),
+      () => api('/api/v1/inventory/locations'),
       (m) => (error.value = m),
       'Failed to load locations',
     )
@@ -140,7 +141,7 @@ export const useInventory = () => {
     loading.value = true
     error.value = null
     const res = await run<{ balances: StockBalance[] }>(
-      () => $fetch('/api/v1/inventory/stock'),
+      () => api('/api/v1/inventory/stock'),
       (m) => (error.value = m),
       'Failed to load stock',
     )
@@ -152,7 +153,7 @@ export const useInventory = () => {
     loading.value = true
     error.value = null
     const res = await run<{ movements: StockMovement[] }>(
-      () => $fetch('/api/v1/inventory/movements'),
+      () => api('/api/v1/inventory/movements'),
       (m) => (error.value = m),
       'Failed to load movements',
     )
@@ -168,7 +169,7 @@ export const useInventory = () => {
     clearAction()
     const res = await run(
       () =>
-        $fetch('/api/v1/inventory/items', {
+        api('/api/v1/inventory/items', {
           method: 'POST',
           body,
         }),
@@ -183,7 +184,7 @@ export const useInventory = () => {
     clearAction()
     const res = await run(
       () =>
-        $fetch(`/api/v1/inventory/items/${id}`, {
+        api(`/api/v1/inventory/items/${id}`, {
           method: 'PATCH',
           body,
         }),
@@ -198,7 +199,7 @@ export const useInventory = () => {
     clearAction()
     const res = await run(
       () =>
-        $fetch('/api/v1/inventory/warehouses', {
+        api('/api/v1/inventory/warehouses', {
           method: 'POST',
           body,
         }),
@@ -213,7 +214,7 @@ export const useInventory = () => {
     clearAction()
     const res = await run(
       () =>
-        $fetch('/api/v1/inventory/locations', {
+        api('/api/v1/inventory/locations', {
           method: 'POST',
           body,
         }),
@@ -228,7 +229,7 @@ export const useInventory = () => {
     clearAction()
     const res = await run(
       () =>
-        $fetch('/api/v1/inventory/receive', {
+        api('/api/v1/inventory/receive', {
           method: 'POST',
           body,
         }),
@@ -243,7 +244,7 @@ export const useInventory = () => {
     clearAction()
     const res = await run(
       () =>
-        $fetch('/api/v1/inventory/transfer', {
+        api('/api/v1/inventory/transfer', {
           method: 'POST',
           body,
         }),
@@ -258,7 +259,7 @@ export const useInventory = () => {
     clearAction()
     const res = await run(
       () =>
-        $fetch('/api/v1/inventory/adjust', {
+        api('/api/v1/inventory/adjust', {
           method: 'POST',
           body,
         }),
@@ -273,7 +274,7 @@ export const useInventory = () => {
     clearAction()
     const res = await run(
       () =>
-        $fetch('/api/v1/inventory/issue', {
+        api('/api/v1/inventory/issue', {
           method: 'POST',
           body,
         }),

@@ -22,20 +22,12 @@ reka/
 │   │       │   ├── organization/
 │   │       │   ├── identity/
 │   │       │   ├── access/
-│   │       │   ├── settings/
 │   │       │   ├── workflow/
 │   │       │   ├── audit/
-│   │       │   ├── notification/
-│   │       │   ├── files/
 │   │       │   ├── module-registry/
 │   │       │   ├── procurement/
 │   │       │   ├── assets/
-│   │       │   ├── hr/
-│   │       │   ├── inventory/
-│   │       │   ├── finance/
-│   │       │   ├── projects/
-│   │       │   ├── helpdesk/
-│   │       │   └── crm/
+│   │       │   └── inventory/
 │   │       └── main.ts
 │   │
 │   └── worker/                    # async/scheduled jobs
@@ -51,9 +43,7 @@ reka/
 │   └── tooling/
 │
 ├── infra/
-│   ├── compose/
-│   ├── docker/
-│   └── scripts/
+│   └── compose/
 │
 ├── docs/
 │   ├── adr/

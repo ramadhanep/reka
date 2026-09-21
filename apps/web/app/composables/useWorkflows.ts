@@ -8,12 +8,13 @@ export const useWorkflows = () => {
   )
   const loading = useState<boolean>('workflows:loading', () => false)
   const error = useState<string | null>('workflows:error', () => null)
+  const api = useApi()
 
   async function fetchWorkflows() {
     loading.value = true
     error.value = null
     try {
-      const res = await $fetch<{ workflows: WorkflowDefinitionSummary[] }>('/api/v1/workflows')
+      const res = await api<{ workflows: WorkflowDefinitionSummary[] }>('/api/v1/workflows')
       workflows.value = res.workflows
     } catch (e: unknown) {
       const err = e as { data?: { message?: string } }
@@ -27,7 +28,7 @@ export const useWorkflows = () => {
     loading.value = true
     error.value = null
     try {
-      const res = await $fetch<{ workflow: WorkflowDefinitionSummary }>(`/api/v1/workflows/${id}`)
+      const res = await api<{ workflow: WorkflowDefinitionSummary }>(`/api/v1/workflows/${id}`)
       currentWorkflow.value = res.workflow
       return res.workflow
     } catch (e: unknown) {
@@ -42,7 +43,7 @@ export const useWorkflows = () => {
   async function publishWorkflow(id: string) {
     error.value = null
     try {
-      const res = await $fetch<{ workflow: WorkflowDefinitionSummary }>(
+      const res = await api<{ workflow: WorkflowDefinitionSummary }>(
         `/api/v1/workflows/${id}/publish`,
         { method: 'POST' },
       )
@@ -65,7 +66,7 @@ export const useWorkflows = () => {
   async function createVersion(id: string) {
     error.value = null
     try {
-      const res = await $fetch<{ workflow: WorkflowDefinitionSummary }>(
+      const res = await api<{ workflow: WorkflowDefinitionSummary }>(
         `/api/v1/workflows/${id}/version`,
         { method: 'POST' },
       )

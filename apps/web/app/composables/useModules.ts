@@ -4,12 +4,13 @@ export const useModules = () => {
   const modules = useState<ModuleSummary[]>('modules:list', () => [])
   const loading = useState<boolean>('modules:loading', () => false)
   const error = useState<string | null>('modules:error', () => null)
+  const api = useApi()
 
   async function fetchModules() {
     loading.value = true
     error.value = null
     try {
-      const res = await $fetch<{ modules: ModuleSummary[] }>('/api/v1/modules')
+      const res = await api<{ modules: ModuleSummary[] }>('/api/v1/modules')
       modules.value = res.modules
     } catch (e: any) {
       error.value = e?.data?.message ?? 'Failed to load modules'
@@ -21,7 +22,7 @@ export const useModules = () => {
   async function enableModule(id: string) {
     error.value = null
     try {
-      const res = await $fetch<{ module: ModuleSummary }>(`/api/v1/modules/${id}/enable`, {
+      const res = await api<{ module: ModuleSummary }>(`/api/v1/modules/${id}/enable`, {
         method: 'POST',
       })
       const idx = modules.value.findIndex((m) => m.id === id)
@@ -39,7 +40,7 @@ export const useModules = () => {
   async function disableModule(id: string) {
     error.value = null
     try {
-      const res = await $fetch<{ module: ModuleSummary }>(`/api/v1/modules/${id}/disable`, {
+      const res = await api<{ module: ModuleSummary }>(`/api/v1/modules/${id}/disable`, {
         method: 'POST',
       })
       const idx = modules.value.findIndex((m) => m.id === id)

@@ -80,15 +80,19 @@ interface AuditLog {
 const logs = ref<AuditLog[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
+const api = useApi()
+const orgContext = useOrganizationContext()
 
-// Get first org for now (will be replaced with org context)
+// Use the organization selected in the org switcher, not a hardcoded first org.
 const { data: orgData } = await useAsyncData(
   'user-orgs-audit',
-  () => $fetch<{ organizations: any[] }>('/api/v1/organizations'),
+  () => api<{ organizations: any[] }>('/api/v1/organizations'),
   { default: () => ({ organizations: [] }) },
 )
 
-const organizationId = computed(() => orgData.value?.organizations[0]?.id)
+const organizationId = computed(
+  () => orgContext.activeOrgId.value || orgData.value?.organizations[0]?.id,
+)
 
 async function fetchAuditLogs() {
   if (!organizationId.value) return
@@ -96,7 +100,7 @@ async function fetchAuditLogs() {
   loading.value = true
   error.value = null
   try {
-    const response = await $fetch<{ logs: AuditLog[] }>('/api/v1/audit', {
+    const response = await api<{ logs: AuditLog[] }>('/api/v1/audit', {
       query: { organizationId: organizationId.value },
     })
     logs.value = response.logs
@@ -120,5 +124,9 @@ function formatTimestamp(iso: string): string {
 
 onMounted(async () => {
   await fetchAuditLogs()
+})
+
+watch(organizationId, (id) => {
+  if (id) fetchAuditLogs()
 })
 </script>
