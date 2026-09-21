@@ -1,0 +1,7 @@
+# Runtime autonomous-engineering state is intentionally not versioned.
+# Filesystem state is the source of truth for the autonomous loop and must
+# survive failed runs, reboots, and context limits.
+*
+!.gitignore
+!config.env
+!README.md

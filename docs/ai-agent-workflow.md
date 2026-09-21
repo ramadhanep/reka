@@ -92,6 +92,9 @@ security-review
 
 These should support the main agent rather than rewrite its architecture.
 
+For the scheduled, unattended version of this workflow, see
+[docs/autonomous-engineering.md](./autonomous-engineering.md).
+
 ## 6. Review Before Completion
 
 Ask a reviewer to look for:
