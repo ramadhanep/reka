@@ -1,8 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common'
 import type { OnModuleInit } from '@nestjs/common'
+import { and, eq } from 'drizzle-orm'
 import type { Database, Db } from '@reka/database'
 import { DATABASE } from '../../common/database.token.js'
 import { organizations } from '../organization/organization.schema.js'
+import { organizationMembers } from '../organization/organization-member.schema.js'
 import { ensurePermissions, findPermissionsByKeys } from './permission.repo.js'
 import {
   createRole,
@@ -40,6 +42,13 @@ export const permissionCatalog: Record<string, string> = {
   'procurement.purchase_order.issue': 'Issue purchase orders',
   'procurement.goods_receipt.read': 'Read goods receipts',
   'procurement.goods_receipt.create': 'Create goods receipts',
+  'assets.read': 'Read assets',
+  'assets.create': 'Create assets',
+  'assets.update': 'Update assets',
+  'assets.assign': 'Assign assets',
+  'assets.return': 'Return assets',
+  'assets.maintain': 'Put assets in maintenance',
+  'assets.retire': 'Retire assets',
 }
 
 @Injectable()
@@ -104,5 +113,27 @@ export class AccessService implements OnModuleInit {
         await grantRolePermissions(db, owner.id, permissionIds)
       }
     }
+  }
+
+  async getUserPermissionKeys(db: Db, userId: string, organizationId: string): Promise<string[]> {
+    const memberRows = await db
+      .select({ roleId: organizationMembers.roleId })
+      .from(organizationMembers)
+      .where(
+        and(
+          eq(organizationMembers.organizationId, organizationId),
+          eq(organizationMembers.userId, userId),
+          eq(organizationMembers.status, 'active'),
+        ),
+      )
+
+    if (memberRows.length === 0) return []
+
+    const roleIds = memberRows.map((m) => m.roleId)
+    return findPermissionKeysByRoleIds(db, roleIds)
+  }
+
+  getPermissionCatalog(): Record<string, string> {
+    return permissionCatalog
   }
 }

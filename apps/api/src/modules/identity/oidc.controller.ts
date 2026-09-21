@@ -1,4 +1,4 @@
-import { Controller, Get, HttpCode, HttpStatus, Query, Req, Res, UseGuards } from '@nestjs/common'
+import { Controller, Get, HttpCode, HttpStatus, Query, Req, Res } from '@nestjs/common'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { getConfig } from '@reka/config'
 import { createAuthProvider } from '@reka/auth'
@@ -30,7 +30,7 @@ export class OIDCController {
   }
 
   @Get('login')
-  login(@Res({ passthrough: true }) reply: FastifyReply, @Req() request: FastifyRequest): void {
+  login(@Res({ passthrough: true }) reply: FastifyReply, @Req() _request: FastifyRequest): void {
     if (!this.oidcProvider) {
       reply.status(HttpStatus.NOT_IMPLEMENTED).send({ message: 'OIDC not configured' })
       return
@@ -95,7 +95,7 @@ export class OIDCController {
 
       const viewModel = this.users.toViewModel(user)
       return { user: { id: viewModel.id, email: viewModel.email, name: viewModel.displayName } }
-    } catch (error) {
+    } catch {
       reply.status(HttpStatus.UNAUTHORIZED).send({ message: 'OIDC authentication failed' })
       return { user: { id: '', email: '', name: '' } }
     }

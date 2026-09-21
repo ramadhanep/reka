@@ -143,6 +143,15 @@ export const assetsModuleManifest: RekaModule = {
   description: 'Physical and digital asset tracking and assignments',
   category: 'business',
   dependencies: ['organization', 'access', 'audit'],
+  permissions: [
+    'assets.read',
+    'assets.create',
+    'assets.update',
+    'assets.assign',
+    'assets.return',
+    'assets.maintain',
+    'assets.retire',
+  ],
   menus: [
     {
       id: 'assets-menu',
