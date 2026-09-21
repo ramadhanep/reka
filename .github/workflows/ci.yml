@@ -18,7 +18,7 @@ jobs:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: reka_test
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U postgres -d reka_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -31,15 +31,16 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
+          node-version: '24.x'
+          cache: pnpm
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 8
+          version: 11.3.0
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Type check
         run: pnpm typecheck
