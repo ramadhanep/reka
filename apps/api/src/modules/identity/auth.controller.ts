@@ -16,6 +16,7 @@ import { ThrottlerGuardWithTestBypass } from '../../common/throttler.guard.js'
 import { AuditService } from '../audit/audit.service.js'
 import { CurrentUser } from './current-user.decorator.js'
 import { LoginDto } from './dto/login.dto.js'
+import { ActivateUserDto } from './dto/activate-user.dto.js'
 import { SessionGuard } from './session.guard.js'
 import { sessionCookieOptions } from './session-cookie.js'
 import { SESSION_COOKIE, SessionService } from './session.service.js'
@@ -62,6 +63,19 @@ export class AuthController {
       resourceType: 'session',
     })
     return { ok: true }
+  }
+
+  @Post('activate')
+  @HttpCode(HttpStatus.OK)
+  async activate(@Body() dto: ActivateUserDto) {
+    const user = await this.users.activateUser(dto.token, dto.password)
+    await this.audit.record({
+      actorId: user.id,
+      action: 'user.activated',
+      resourceType: 'user',
+      resourceId: user.id,
+    })
+    return { user: this.users.toViewModel(user) }
   }
 
   @Get('session')

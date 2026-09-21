@@ -1,8 +1,16 @@
-import { Inject, Injectable, UnauthorizedException } from '@nestjs/common'
+import { BadRequestException, Inject, Injectable, UnauthorizedException } from '@nestjs/common'
 import { randomBytes } from 'node:crypto'
+import { eq } from 'drizzle-orm'
 import { type Database, type Db } from '@reka/database'
 import { DATABASE } from '../../common/database.token.js'
 import { PasswordService } from './password.service.js'
+import {
+  createActivationToken,
+  findValidToken,
+  markTokenUsed,
+  type ActivationTokenRow,
+} from './activation-token.repo.js'
+import { usersTable } from './user.schema.js'
 import {
   countUsers,
   createUser,
@@ -102,6 +110,39 @@ export class UserService {
       throw new UnauthorizedException('Invalid credentials')
     }
     return user
+  }
+
+  async createActivationToken(userId: string): Promise<ActivationTokenRow> {
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+    return createActivationToken(this.database.db, userId, expiresAt)
+  }
+
+  async activateUser(token: string, password: string): Promise<UserRow> {
+    const tokenRow = await findValidToken(this.database.db, token)
+    if (!tokenRow) {
+      throw new BadRequestException('Invalid or expired activation token')
+    }
+    if (tokenRow.expiresAt < new Date()) {
+      throw new BadRequestException('Activation token has expired')
+    }
+
+    const user = await findUserById(this.database.db, tokenRow.userId)
+    if (!user) {
+      throw new BadRequestException('User not found')
+    }
+    if (user.status !== 'pending') {
+      throw new BadRequestException('User is not pending activation')
+    }
+
+    const passwordHash = await this.password.hash(password)
+    const [updated] = await this.database.db
+      .update(usersTable)
+      .set({ passwordHash, status: 'active' })
+      .where(eq(usersTable.id, user.id))
+      .returning()
+
+    await markTokenUsed(this.database.db, tokenRow.id)
+    return updated
   }
 
   toViewModel(user: UserRow) {

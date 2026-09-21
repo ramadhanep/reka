@@ -28,7 +28,7 @@
         <UiInput v-model="form.category" placeholder="Category (e.g. Laptop)" />
         <UiInput v-model="form.serialNumber" placeholder="Serial Number" />
         <UiInput v-model="form.purchaseDate" type="date" placeholder="Purchase Date" />
-        <UiInput v-model="form.purchasePrice" type="number" placeholder="Price (minor units)" />
+        <UiInput v-model="form.purchasePrice" type="number" step="0.01" placeholder="Price (USD)" />
         <UiInput v-model="form.description" placeholder="Description" class="sm:col-span-2" />
       </div>
       <UiErrorText :message="actionError" />
@@ -129,7 +129,7 @@ async function submitAsset() {
       description: form.description || undefined,
       serialNumber: form.serialNumber || undefined,
       purchaseDate: form.purchaseDate || undefined,
-      purchasePrice: form.purchasePrice ? Number(form.purchasePrice) : undefined,
+      purchasePrice: form.purchasePrice ? dollarsToMinorUnits(Number(form.purchasePrice)) : undefined,
     })
     if (res.success) {
       Object.assign(form, {

@@ -5,6 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common'
+import type { OnModuleInit } from '@nestjs/common'
 import type { Database, Db } from '@reka/database'
 import { DATABASE } from '../../common/database.token.js'
 import { AccessService } from '../access/access.service.js'
@@ -71,12 +72,16 @@ export interface AssetAssignmentView {
 }
 
 @Injectable()
-export class AssetsService {
+export class AssetsService implements OnModuleInit {
   constructor(
     @Inject(DATABASE) private readonly database: Database,
     private readonly audit: AuditService,
     private readonly access: AccessService,
   ) {}
+
+  async onModuleInit(): Promise<void> {
+    await this.seed()
+  }
 
   async seed(): Promise<void> {
     const permissionKeys = Object.keys(this.access.getPermissionCatalog()).filter((key) =>

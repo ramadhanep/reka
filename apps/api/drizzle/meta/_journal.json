@@ -64,6 +64,13 @@
       "when": 1789975413436,
       "tag": "0008_red_solo",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789991856849,
+      "tag": "0009_opposite_sauron",
+      "breakpoints": true
     }
   ]
 }

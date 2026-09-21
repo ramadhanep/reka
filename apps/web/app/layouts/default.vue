@@ -20,6 +20,19 @@
           </nav>
         </div>
         <div v-if="auth.user.value" class="flex items-center gap-3">
+          <select
+            v-if="orgContext.organizations.value.length > 0"
+            v-model="orgContext.activeOrgId.value"
+            class="rounded border border-slate-300 bg-white px-3 py-1 text-sm text-slate-700 focus:border-slate-500 focus:outline-none"
+          >
+            <option
+              v-for="org in orgContext.organizations.value"
+              :key="org.id"
+              :value="org.id"
+            >
+              {{ org.name }}
+            </option>
+          </select>
           <span class="text-sm text-slate-600">{{ auth.user.value.displayName }}</span>
           <UiButton @click="auth.logout">Sign out</UiButton>
         </div>
@@ -36,11 +49,17 @@
 import { resolveNavigation } from '../utils/navigation.js'
 
 const auth = useAuth()
+const orgContext = useOrganizationContext()
 const { modules, fetchModules, enabledModuleIds } = useModules()
 
 onMounted(async () => {
-  if (auth.user.value && modules.value.length === 0) {
-    await fetchModules()
+  if (auth.user.value) {
+    if (orgContext.organizations.value.length === 0) {
+      await orgContext.fetchOrganizations()
+    }
+    if (modules.value.length === 0) {
+      await fetchModules()
+    }
   }
 })
 

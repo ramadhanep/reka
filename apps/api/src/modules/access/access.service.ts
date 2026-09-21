@@ -30,6 +30,7 @@ export const permissionCatalog: Record<string, string> = {
   'workflow.instance.read': 'Read workflow instances and history',
   'workflow.instance.create': 'Create workflow instances',
   'workflow.instance.transition': 'Execute workflow transitions',
+  'audit.read': 'Read audit logs',
   'procurement.vendor.read': 'Read vendors',
   'procurement.vendor.manage': 'Create and update vendors',
   'procurement.purchase_request.read': 'Read purchase requests',
@@ -64,6 +65,18 @@ export class AccessService implements OnModuleInit {
 
   async onModuleInit(): Promise<void> {
     await this.seedCatalog()
+    await this.backfillPlatformPermissions()
+  }
+
+  /**
+   * Backfills platform permissions (module.*, workflow.*, audit.*) to existing
+   * organization owner roles. Called once at startup; idempotent.
+   */
+  async backfillPlatformPermissions(): Promise<void> {
+    const platformKeys = Object.keys(permissionCatalog).filter(
+      (key) => key.startsWith('module.') || key.startsWith('workflow.') || key.startsWith('audit.'),
+    )
+    await this.backfillOwnerRolePermissions(this.database.db, platformKeys)
   }
 
   async seedCatalog(): Promise<void> {
