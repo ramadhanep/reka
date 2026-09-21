@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 import 'dotenv/config'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { eq, and, sql } from 'drizzle-orm'
