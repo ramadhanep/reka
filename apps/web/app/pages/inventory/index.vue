@@ -27,7 +27,7 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ middleware: 'auth' })
+definePageMeta({ middleware: ['auth', 'module-enabled'] })
 
 const { items, warehouses, balances, loading, error, fetchItems, fetchWarehouses, fetchStock } =
   useInventory()

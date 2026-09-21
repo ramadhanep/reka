@@ -87,7 +87,7 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ middleware: 'auth' })
+definePageMeta({ middleware: ['auth', 'module-enabled'] })
 
 const { assets, loading, error, fetchAssets, createAsset } = useAssets()
 const route = useRoute()
@@ -129,7 +129,9 @@ async function submitAsset() {
       description: form.description || undefined,
       serialNumber: form.serialNumber || undefined,
       purchaseDate: form.purchaseDate || undefined,
-      purchasePrice: form.purchasePrice ? dollarsToMinorUnits(Number(form.purchasePrice)) : undefined,
+      purchasePrice: form.purchasePrice
+        ? dollarsToMinorUnits(Number(form.purchasePrice))
+        : undefined,
     })
     if (res.success) {
       Object.assign(form, {

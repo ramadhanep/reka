@@ -9,14 +9,15 @@ The goal is not to build "another ERP" by stacking CRUD screens. REKA is designe
 - Workflow and approvals
 - Procurement
 - Assets
-- HR
 - Inventory
+- Audit
+
+Additional modules planned:
+
+- HR
 - Finance
 - Projects
 - Helpdesk
-- Notifications
-- Audit
-- Files
 
 ## Architecture Direction
 
@@ -91,8 +92,11 @@ Prerequisites: Node.js 24 LTS, pnpm, Docker.
 pnpm install
 pnpm db:up          # start local PostgreSQL
 pnpm db:migrate     # apply migrations
+pnpm demo:seed      # seed demo organization and admin user
 pnpm dev            # web (localhost:3000) + api (localhost:4000)
 ```
+
+Demo credentials: `admin@reka.demo` / `demo123`
 
 See [DEVELOPMENT.md](./DEVELOPMENT.md) for details.
 

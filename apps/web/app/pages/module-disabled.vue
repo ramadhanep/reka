@@ -5,7 +5,10 @@
       This module is currently disabled. An administrator can enable it via Settings → Modules.
     </p>
     <div class="mt-4">
-      <NuxtLink to="/settings/modules" class="inline-flex items-center text-sm text-slate-700 underline hover:text-slate-900">
+      <NuxtLink
+        to="/settings/modules"
+        class="inline-flex items-center text-sm text-slate-700 underline hover:text-slate-900"
+      >
         Go to Module Settings
       </NuxtLink>
     </div>

@@ -27,7 +27,7 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ middleware: 'auth' })
+definePageMeta({ middleware: ['auth', 'module-enabled'] })
 
 const { assets, loading, error, fetchAssets } = useAssets()
 

@@ -104,7 +104,7 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ middleware: 'auth' })
+definePageMeta({ middleware: ['auth', 'module-enabled'] })
 const route = useRoute()
 const assetId = route.params.id as string
 
@@ -131,17 +131,19 @@ onMounted(async () => {
   const res = await fetchAsset(assetId)
   if (res.success) asset.value = res.data!.asset
   fetchAssetHistory(assetId)
-  
+
   // Load organization members for assignee picker
   const activeOrg = orgContext.activeOrganization.value
   if (activeOrg) {
     loadingMembers.value = true
     try {
-      const membersRes = await $fetch<{ members: any[] }>(`/api/v1/organizations/${activeOrg.id}/members`)
-      orgMembers.value = membersRes.members.map(m => ({
+      const membersRes = await $fetch<{ members: any[] }>(
+        `/api/v1/organizations/${activeOrg.id}/members`,
+      )
+      orgMembers.value = membersRes.members.map((m) => ({
         userId: m.userId,
         email: m.email,
-        displayName: m.displayName || m.email
+        displayName: m.displayName || m.email,
       }))
     } finally {
       loadingMembers.value = false

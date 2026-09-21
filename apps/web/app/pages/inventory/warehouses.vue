@@ -70,7 +70,7 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ middleware: 'auth' })
+definePageMeta({ middleware: ['auth', 'module-enabled'] })
 
 const { warehouses, loading, error, fetchWarehouses, createWarehouse } = useInventory()
 const showCreate = ref(false)

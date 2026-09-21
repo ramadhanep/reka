@@ -81,7 +81,7 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ middleware: 'auth' })
+definePageMeta({ middleware: ['auth', 'module-enabled'] })
 
 const { vendors, loading, error, fetchVendors, createVendor } = useProcurement()
 const showCreate = ref(false)

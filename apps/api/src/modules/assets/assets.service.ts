@@ -453,30 +453,40 @@ export class AssetsService implements OnModuleInit {
    */
   async getAssetTimeline(id: string, organizationId: string): Promise<any[]> {
     await this.requireAsset(id, organizationId)
-    
+
     // Fetch assignment history
     const assignments = await listAssetHistory(this.database.db, organizationId, id)
-    const assignmentEntries = assignments.map(row => ({
+    const assignmentEntries = assignments.map((row) => ({
       type: 'assignment',
       id: row.id,
       timestamp: row.assignedAt,
       data: this.toAssignmentView(row),
     }))
-    
+
     // Fetch relevant audit events for this asset
     const auditRows = await this.audit.listAuditLogs({
       organizationId,
       resourceType: 'asset',
       resourceId: id,
-      action: ['asset.created', 'asset.assigned', 'asset.returned', 'asset.maintenance', 'asset.retired'],
     })
-    const auditEntries = auditRows.map(log => ({
-      type: 'audit',
-      id: log.id,
-      timestamp: new Date(log.occurredAt),
-      data: log,
-    }))
-    
+
+    // Filter for lifecycle events only
+    const lifecycleActions = [
+      'asset.created',
+      'asset.assigned',
+      'asset.returned',
+      'asset.maintenance',
+      'asset.retired',
+    ]
+    const auditEntries = auditRows
+      .filter((log) => lifecycleActions.includes(log.action))
+      .map((log) => ({
+        type: 'audit',
+        id: log.id,
+        timestamp: new Date(log.occurredAt),
+        data: log,
+      }))
+
     const combined = [...assignmentEntries, ...auditEntries]
     combined.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
     return combined

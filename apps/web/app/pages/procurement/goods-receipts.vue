@@ -103,7 +103,7 @@
 <script setup lang="ts">
 import type { PurchaseOrder } from '#imports'
 
-definePageMeta({ middleware: 'auth' })
+definePageMeta({ middleware: ['auth', 'module-enabled'] })
 
 const { orders, receipts, loading, error, fetchReceipts, fetchOrders, createReceipt } =
   useProcurement()

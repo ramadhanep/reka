@@ -34,11 +34,11 @@ Everything in this report is a finding, not a recommendation to implement now. P
 
 ### Apps
 
-| App | State | Notes |
-|---|---|---|
-| web | runs (Nuxt dev) | SPA-ish; SSR shells only; data fetched client-side |
-| api | **cannot boot in default dev config** | hangs in `SwaggerModule.setup` (missing `@fastify/static`) |
-| worker | exists, runs standalone | PostgreSQL-backed job worker; no root script, not containerized |
+| App    | State                                 | Notes                                                           |
+| ------ | ------------------------------------- | --------------------------------------------------------------- |
+| web    | runs (Nuxt dev)                       | SPA-ish; SSR shells only; data fetched client-side              |
+| api    | **cannot boot in default dev config** | hangs in `SwaggerModule.setup` (missing `@fastify/static`)      |
+| worker | exists, runs standalone               | PostgreSQL-backed job worker; no root script, not containerized |
 
 ### Modules (runtime registry state — audited DB)
 
@@ -86,15 +86,17 @@ Cookie session (`reka_session`, SHA-256-hashed token in DB, 7-day expiry), org-s
 ## User Experience Findings
 
 ### What works well
+
 - Every list page has explicit loading, empty, and error states (no blank screens / infinite spinners observed in source or rendered output).
 - Validation messages surfaced inline and from the API are human-readable (`"Only draft purchase requests can be submitted (current status: submitted)"`).
 - Consistent card-based list UI and status badges.
 - Forms reset and close after success; action messages appear for errors.
 
 ### Recurring UX problems
+
 - **Money units mismatch between UI and API.** The API stores integer minor units (cents). The purchase-request form asks for "Price" and sends it un-scaled; a user entering `1200` later sees `USD 12.00` on the list. The asset form literally labels the field `Price (minor units)`. Users think in dollars; the UI sells them cents. `Severity: High — Area: Money, Procurement/Assets UI — Location: apps/web/app/pages/procurement/purchase-requests.vue, purchase-orders.vue, assets/list.vue`
 - **Assigning an asset requires typing a raw user UUID** (`placeholder="User ID"`), and assignment history displays raw UUIDs with no user name lookup. `Severity: High — Area: Assets UI — Location: apps/web/app/pages/assets/[id].vue`
-- **No organization context in the UI.** No active-org indicator, no org switcher; all business data loads against the actor's *first eligible* org. A multi-org admin cannot choose which org they are operating in. `Severity: High — Area: Multi-tenant — Location: all composables (useProcurement.ts, useInventory.ts, useAssets.ts) — API: apps/api/src/common/org-permission.guard.ts:54`
+- **No organization context in the UI.** No active-org indicator, no org switcher; all business data loads against the actor's _first eligible_ org. A multi-org admin cannot choose which org they are operating in. `Severity: High — Area: Multi-tenant — Location: all composables (useProcurement.ts, useInventory.ts, useAssets.ts) — API: apps/api/src/common/org-permission.guard.ts:54`
 - **Pending members are a dead end.** Adding a member creates a `pending` user; there is no API or UI to set their password or activate them. They can never sign in. `Severity: High — Area: Organization/Identity — Location: apps/api/src/modules/identity/user.service.ts:88 (createPendingUser); no activation endpoint`
 - **Module enable/disable has no UI consequence for route visibility.** Backend correctly 404s disabled module routes; frontend hides nav. But navigating directly to a disabled module's URL shows the auth-checked page that errors at data load (no "module disabled" screen).
 - **"Issue order" and similar body-less POSTs** return `400 Body cannot be empty when content-type is set to 'application/json'` if any client sets JSON content-type without a body (curl/docs pitfalls; the browser SPA is fine today, API consumers will hit it).
@@ -103,7 +105,7 @@ Cookie session (`reka_session`, SHA-256-hashed token in DB, 7-day expiry), org-s
 
 ## Navigation Findings
 
-- Duplicate left-navigation: layout header nav lists Organizations / Modules / Workflows + enabled business modules, **but** every subpage carries its own back-link ("← Procurement", "← Workflows"). The two navigation systems coexist without tension, but there is no *within-module* secondary nav (e.g. Procurement's four screens have no persistent tab bar), so moving between Vendors ↔ Purchase Requests requires going back to the dashboard.
+- Duplicate left-navigation: layout header nav lists Organizations / Modules / Workflows + enabled business modules, **but** every subpage carries its own back-link ("← Procurement", "← Workflows"). The two navigation systems coexist without tension, but there is no _within-module_ secondary nav (e.g. Procurement's four screens have no persistent tab bar), so moving between Vendors ↔ Purchase Requests requires going back to the dashboard.
 - `resolveNavigation` duplicates the platform nav into every page via the shared header (`layout/default.vue`), which is good. However the module metadata `menus[]` (declared in module manifests) is **never consumed** — the layout builds nav from a hardcoded `knownBusinessNavItems` list, so manifest menu metadata is dead. `Severity: Medium — Location: apps/web/app/utils/navigation.ts vs apps/api/src/modules/module-registry/module-manifests.ts`
 - HR and Finance appear in `knownBusinessNavItems` without existing modules; harmless today (filtered by disabled modules) but a dead-link trap the moment someone enables a module with no pages.
 - Active states rely on `active-class` on exact path; `/assets/list?status=AVAILABLE` (used by dashboard cards) loses the active state.
@@ -147,7 +149,7 @@ End-to-end flow verified live:
 `create → assign → re-assign rejected → maintenance blocked while assigned → return → retire → history (1 assignment, returned)`
 
 - Lifecycle rules are enforced server-side and sensible (cannot assign twice; must return before maintenance; retire from any non-retired status).
-- Lifecycle events ARE audited (`asset.created/assigned/returned/retired`), but the **History tab shows assignments only** — audit events like "maintenance" and "retired" don't appear in asset history; a user cannot see *why* it went to maintenance or that it was retired from the history panel. `Severity: Medium — Location: apps/api/src/modules/assets/assets.service.ts getAssetHistory`
+- Lifecycle events ARE audited (`asset.created/assigned/returned/retired`), but the **History tab shows assignments only** — audit events like "maintenance" and "retired" don't appear in asset history; a user cannot see _why_ it went to maintenance or that it was retired from the history panel. `Severity: Medium — Location: apps/api/src/modules/assets/assets.service.ts getAssetHistory`
 - **Asset ← procurement provenance exists but is invisible in the UI**: assets carry `vendorId`/`purchaseOrderId` (FKs to procurement tables) but the detail page does not show vendor or PO; the create form does not expose any link to a PO or vendor (only raw fields). The "where did this asset come from" story is incomplete in the product. `Severity: Medium — Location: apps/web/app/pages/assets/[id].vue, assets/list.vue`
 - **Asset ↔ inventory boundary**: nothing in the UI explains that a serialized laptop is an Asset and 100 cables is an inventory quantity; both namespaces can hold "Laptop" simultaneously. No assistive copy. `Severity: Low`
 - Create form requires tag/name/category; serial/date/price optional. Price field labeled in minor units (see Money).
@@ -160,7 +162,7 @@ End-to-end flow verified live:
 - **Server-side authorization verified solid**: permission-guarded endpoints return `403 Missing permission: X`; cross-org access returns `403 Not an active member`; disabled-module routes return 404. `Severity: none (positive)`
 - All module guards delegate to one shared factory (`createOrgPermissionGuard`) — no guard duplication. `Severity: none (positive)`
 - **Owner-role permission backfill bug (see Executive Summary #2).** Root cause chain:
-  - `ModuleRegistryService`/`AccessService` only seed the catalog; granting to roles happens at org creation (`createOrganizationRoles` grants the *entire current* catalog) plus per-module `backfillOwnerRolePermissions`.
+  - `ModuleRegistryService`/`AccessService` only seed the catalog; granting to roles happens at org creation (`createOrganizationRoles` grants the _entire current_ catalog) plus per-module `backfillOwnerRolePermissions`.
   - `assets.service.seed()` exists but has **no `onModuleInit`** calling it → asset perms never backfilled.
   - No backfill exists for `module.*` and `workflow.*` → orgs created before those keys (M6/M7) never receive them.
   - Result: in the audited org, `/modules`, `/workflows`, `/audit`, and `/assets` were 403 for the owner until I granted the keys. Fresh orgs are fine, which masks the bug in tests. `Severity: Critical — Area: Access — Location: apps/api/src/modules/assets/assets.service.ts:81, apps/api/src/modules/access/access.service.ts backfillOwnerRolePermissions`
@@ -185,6 +187,7 @@ End-to-end flow verified live:
 Strengths: every major page handles loading + empty + error + success. Forms handle disabled/loading and inline errors. Shared `UiErrorText`, per-page banners for success/action errors.
 
 Gaps:
+
 - `ErrorText` inside a form disappears on `actionError = null` correctly; good.
 - Org member page fetches members and roles unconditionally and renders a generic "Failed to load organization" when a non-manager views it (403), instead of hiding or explaining. `Severity: Medium — Location: apps/web/app/pages/organizations/[id].vue`
 - Disabled-module route: direct navigation shows a broken-looking page rather than a "module disabled" state. `Severity: Medium`
@@ -221,17 +224,17 @@ Gaps:
 
 ## Domain Consistency Findings
 
-| Term | Used as | Inconsistency |
-|---|---|---|
-| User vs Employee | `User` everywhere; `hr` envisioned for employees | No HR module yet; fine for now |
-| Asset vs Inventory Item | Both exist, doc'd boundary | UI gives users no clue when to use which; both can be "Laptop" |
-| Goods Receipt vs Stock Receipt vs Receive | `Goods Receipt` (procurement), inventory action `Receive`, movement type `RECEIPT` | Three names for one hand-off; the inventory "Receive from Goods Receipt" form is the seam and is the hardest form in the product |
-| Organization vs Tenant | `Organization` only (good) | N/A |
-| Purchase Request vs Purchase Order | Distinct and well-explained in UI copy (good) | N/A |
-| Status casing | `active` / `draft` / `submitted` (procurement) vs `ACTIVE` / `AVAILABLE` / `ASSIGNED` (inventory/assets) | **Should be standardized** (recommend uppercase enum per status badge dictionary) |
-| Purchasing unit Price | cents (API) vs dollars (UI intent) | **Should be standardized at the API boundary with a documented unit** |
-| "Pending approval" | `statusBadge` maps `submitted` → label "pending approval" (good UX) | fine |
-| User display name | pending users get email, admins set via setup | `displayName` not settable when adding a member |
+| Term                                      | Used as                                                                                                  | Inconsistency                                                                                                                    |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| User vs Employee                          | `User` everywhere; `hr` envisioned for employees                                                         | No HR module yet; fine for now                                                                                                   |
+| Asset vs Inventory Item                   | Both exist, doc'd boundary                                                                               | UI gives users no clue when to use which; both can be "Laptop"                                                                   |
+| Goods Receipt vs Stock Receipt vs Receive | `Goods Receipt` (procurement), inventory action `Receive`, movement type `RECEIPT`                       | Three names for one hand-off; the inventory "Receive from Goods Receipt" form is the seam and is the hardest form in the product |
+| Organization vs Tenant                    | `Organization` only (good)                                                                               | N/A                                                                                                                              |
+| Purchase Request vs Purchase Order        | Distinct and well-explained in UI copy (good)                                                            | N/A                                                                                                                              |
+| Status casing                             | `active` / `draft` / `submitted` (procurement) vs `ACTIVE` / `AVAILABLE` / `ASSIGNED` (inventory/assets) | **Should be standardized** (recommend uppercase enum per status badge dictionary)                                                |
+| Purchasing unit Price                     | cents (API) vs dollars (UI intent)                                                                       | **Should be standardized at the API boundary with a documented unit**                                                            |
+| "Pending approval"                        | `statusBadge` maps `submitted` → label "pending approval" (good UX)                                      | fine                                                                                                                             |
+| User display name                         | pending users get email, admins set via setup                                                            | `displayName` not settable when adding a member                                                                                  |
 
 Recommendation (not implemented): standardize status casing into one enum + one badge dictionary; document monetary units as cents in the API contract and convert in the UI; keep "Goods Receipt" as the procurement term and "Receive" as the inventory verb with explicit copy.
 
@@ -361,25 +364,14 @@ Severity call: I keep this P0-adjacent; at minimum it should be the next milesto
 ## Recommended Backlog
 
 **P0 (blockers to "platform foundation is production-ready"):**
+
 1. Fix API default-config boot (OpenAPI/`@fastify/static`) + regression test that `pnpm dev` boots.
 2. Fix owner-role permission backfill for platform + assets permissions on existing orgs.
 3. Add a minimal audit read API (list/filter) + Settings → Audit screen.
 
-**P1 (material improvement):**
-4. Org context in UI (active-org selector + header); send `x-organization-id`.
-5. Money units: document cents in contract + convert in UI (drop "minor units" labels).
-6. Asset assignment member picker + name resolution in history.
-7. User activation/set-password flow for pending members.
-8. Standardize status enums + one shared badge mapping.
-9. Disabled-module route state; asset provenance display; vocabulary copy for Inventory↔Assets boundaries.
-10. Seed/demo script + documented credentials; CI pipeline (lint/typecheck/test/build).
+**P1 (material improvement):** 4. Org context in UI (active-org selector + header); send `x-organization-id`. 5. Money units: document cents in contract + convert in UI (drop "minor units" labels). 6. Asset assignment member picker + name resolution in history. 7. User activation/set-password flow for pending members. 8. Standardize status enums + one shared badge mapping. 9. Disabled-module route state; asset provenance display; vocabulary copy for Inventory↔Assets boundaries. 10. Seed/demo script + documented credentials; CI pipeline (lint/typecheck/test/build).
 
-**P2 (polish):**
-11. a11y pass (labels/for, focus rings, type="button", simple dialog component).
-12. Navigation polish (within-module tabs, mobile menu, manifest-driven nav).
-13. Deduplicate composable helpers; clear `any` warnings.
-14. Inventory receive form guidance; movement-limit hint.
-15. Plug unused packages (redis/storage) when first real consumer exists; retire or implement `@reka/ui`.
+**P2 (polish):** 11. a11y pass (labels/for, focus rings, type="button", simple dialog component). 12. Navigation polish (within-module tabs, mobile menu, manifest-driven nav). 13. Deduplicate composable helpers; clear `any` warnings. 14. Inventory receive form guidance; movement-limit hint. 15. Plug unused packages (redis/storage) when first real consumer exists; retire or implement `@reka/ui`.
 
 ---
 

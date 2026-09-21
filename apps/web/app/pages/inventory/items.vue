@@ -84,7 +84,7 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ middleware: 'auth' })
+definePageMeta({ middleware: ['auth', 'module-enabled'] })
 
 const { items, loading, error, fetchItems, createItem, updateItem } = useInventory()
 const showCreate = ref(false)

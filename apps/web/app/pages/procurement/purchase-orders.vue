@@ -117,7 +117,7 @@
 <script setup lang="ts">
 import type { PurchaseRequest } from '#imports'
 
-definePageMeta({ middleware: 'auth' })
+definePageMeta({ middleware: ['auth', 'module-enabled'] })
 
 const {
   orders,

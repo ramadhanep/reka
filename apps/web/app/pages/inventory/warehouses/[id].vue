@@ -65,7 +65,7 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ middleware: 'auth' })
+definePageMeta({ middleware: ['auth', 'module-enabled'] })
 
 const route = useRoute()
 const warehouseId = route.params.id as string

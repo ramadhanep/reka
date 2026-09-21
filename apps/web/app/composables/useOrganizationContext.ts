@@ -23,7 +23,7 @@ export const useOrganizationContext = () => {
       const res = await $fetch<{ organizations: Organization[] }>('/api/v1/organizations')
       organizations.value = res.organizations
       if (!activeOrgId.value && res.organizations.length > 0) {
-        activeOrgId.value = res.organizations[0].id
+        activeOrgId.value = res.organizations[0]!.id
       }
     } catch (e: any) {
       error.value = e?.data?.message ?? 'Failed to load organizations'

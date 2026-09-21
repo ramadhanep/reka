@@ -36,12 +36,15 @@ Commands:
 pnpm install
 pnpm db:up          # starts local PostgreSQL via Docker Compose
 pnpm db:migrate     # applies pending Drizzle migrations
+pnpm demo:seed      # seeds demo organization + admin user (admin@reka.demo / demo123)
 pnpm dev            # starts web (Nuxt 4) and api (NestJS + Fastify)
 ```
 
 Environment defaults in `packages/config` target the local Docker PostgreSQL, so no
 `.env` file is required for the default development flow. Override via `.env` or shell
 environment when needed.
+
+**Note:** If the API fails to start with an OpenAPI/Swagger hang, set `OPENAPI_ENABLED=false` in `.env` until the `@fastify/static` dependency issue is resolved.
 
 ## Environment
 

@@ -22,10 +22,7 @@ export async function createActivationToken(
   expiresAt: Date,
 ): Promise<ActivationTokenRow> {
   const token = generateActivationToken()
-  const [row] = await db
-    .insert(activationTokens)
-    .values({ userId, token, expiresAt })
-    .returning()
+  const [row] = await db.insert(activationTokens).values({ userId, token, expiresAt }).returning()
   return row
 }
 
@@ -33,12 +30,7 @@ export async function findValidToken(db: Db, token: string): Promise<ActivationT
   const [row] = await db
     .select()
     .from(activationTokens)
-    .where(
-      and(
-        eq(activationTokens.token, token),
-        isNull(activationTokens.usedAt),
-      ),
-    )
+    .where(and(eq(activationTokens.token, token), isNull(activationTokens.usedAt)))
     .limit(1)
   return row || null
 }

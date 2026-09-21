@@ -76,7 +76,7 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ middleware: 'auth' })
+definePageMeta({ middleware: ['auth', 'module-enabled'] })
 
 const { movements, loading, error, fetchMovements } = useInventory()
 const typeFilter = ref('')

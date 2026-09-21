@@ -35,7 +35,13 @@
           <UiInput v-model="item.description" placeholder="Description" class="col-span-2" />
           <UiInput v-model="item.quantity" type="number" min="1" placeholder="Qty" />
           <UiInput v-model="item.unit" placeholder="Unit" />
-          <UiInput v-model="item.price" type="number" step="0.01" min="0" placeholder="Price (USD)" />
+          <UiInput
+            v-model="item.price"
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="Price (USD)"
+          />
         </div>
         <UiButton class="mt-2" @click="addItem"> + Add item </UiButton>
       </div>
@@ -119,7 +125,7 @@
 import type { PurchaseRequest } from '#imports'
 import { dollarsToMinorUnits, formatMoney } from '~/utils/money'
 
-definePageMeta({ middleware: 'auth' })
+definePageMeta({ middleware: ['auth', 'module-enabled'] })
 
 const { requests, loading, error, fetchRequests, createRequest, requestAction } = useProcurement()
 const showCreate = ref(false)
@@ -143,10 +149,6 @@ function addItem() {
 
 function requestTotal(r: PurchaseRequest): number {
   return r.items.reduce((sum, i) => sum + i.estimatedUnitPrice * i.quantity, 0)
-}
-
-function formatTotal(minorUnits: number): string {
-  return formatMoney(minorUnits)
 }
 
 async function create() {

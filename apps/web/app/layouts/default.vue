@@ -25,11 +25,7 @@
             v-model="orgContext.activeOrgId.value"
             class="rounded border border-slate-300 bg-white px-3 py-1 text-sm text-slate-700 focus:border-slate-500 focus:outline-none"
           >
-            <option
-              v-for="org in orgContext.organizations.value"
-              :key="org.id"
-              :value="org.id"
-            >
+            <option v-for="org in orgContext.organizations.value" :key="org.id" :value="org.id">
               {{ org.name }}
             </option>
           </select>

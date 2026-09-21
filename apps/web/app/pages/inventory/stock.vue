@@ -30,6 +30,10 @@
       @submit.prevent="doReceive"
     >
       <h3 class="mb-2 text-sm font-semibold text-slate-900">Receive from Goods Receipt</h3>
+      <p class="mb-3 text-xs text-slate-600">
+        A Goods Receipt confirms vendor delivery. This form records those goods into inventory
+        stock. Match the receipt line to an inventory item and specify the destination location.
+      </p>
       <div class="grid gap-3 sm:grid-cols-2">
         <label class="text-xs text-slate-500">
           Receipt
@@ -266,7 +270,7 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ middleware: 'auth' })
+definePageMeta({ middleware: ['auth', 'module-enabled'] })
 
 const {
   items,
