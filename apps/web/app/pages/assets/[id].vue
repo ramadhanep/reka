@@ -74,9 +74,20 @@
     <!-- Modals (simplified as forms) -->
     <div v-if="showAssign" class="mt-4 rounded-lg border border-slate-200 bg-white p-4">
       <h3 class="font-semibold text-slate-900">Assign Asset</h3>
-      <UiInput v-model="assignForm.assigneeUserId" placeholder="User ID" />
-      <UiInput v-model="assignForm.notes" placeholder="Notes" />
-      <div class="mt-2 flex gap-2">
+      <div class="mt-2">
+        <label class="mb-1 block text-xs text-slate-600">Assign to</label>
+        <select
+          v-model="assignForm.assigneeUserId"
+          class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-slate-500 focus:outline-none"
+        >
+          <option value="">Select a member</option>
+          <option v-for="member in orgMembers" :key="member.userId" :value="member.userId">
+            {{ member.displayName || member.email }} ({{ member.email }})
+          </option>
+        </select>
+      </div>
+      <UiInput v-model="assignForm.notes" placeholder="Notes" class="mt-3" />
+      <div class="mt-3 flex gap-2">
         <UiButton @click="handleAssign">Assign</UiButton>
         <UiButton variant="secondary" @click="showAssign = false">Cancel</UiButton>
       </div>
@@ -112,11 +123,30 @@ const showAssign = ref(false)
 const showReturn = ref(false)
 const assignForm = reactive({ assigneeUserId: '', notes: '' })
 const returnForm = reactive({ notes: '' })
+const orgContext = useOrganizationContext()
+const orgMembers = ref<Array<{ userId: string; email: string; displayName: string }>>([])
+const loadingMembers = ref(false)
 
 onMounted(async () => {
   const res = await fetchAsset(assetId)
   if (res.success) asset.value = res.data!.asset
   fetchAssetHistory(assetId)
+  
+  // Load organization members for assignee picker
+  const activeOrg = orgContext.activeOrganization.value
+  if (activeOrg) {
+    loadingMembers.value = true
+    try {
+      const membersRes = await $fetch<{ members: any[] }>(`/api/v1/organizations/${activeOrg.id}/members`)
+      orgMembers.value = membersRes.members.map(m => ({
+        userId: m.userId,
+        email: m.email,
+        displayName: m.displayName || m.email
+      }))
+    } finally {
+      loadingMembers.value = false
+    }
+  }
 })
 
 async function handleAssign() {

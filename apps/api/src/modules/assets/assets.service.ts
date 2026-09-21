@@ -447,6 +447,41 @@ export class AssetsService implements OnModuleInit {
     return rows.map((row) => this.toAssignmentView(row))
   }
 
+  /**
+   * Extended asset timeline including audit events for lifecycle visibility.
+   * Returns combined timeline entries sorted by timestamp descending.
+   */
+  async getAssetTimeline(id: string, organizationId: string): Promise<any[]> {
+    await this.requireAsset(id, organizationId)
+    
+    // Fetch assignment history
+    const assignments = await listAssetHistory(this.database.db, organizationId, id)
+    const assignmentEntries = assignments.map(row => ({
+      type: 'assignment',
+      id: row.id,
+      timestamp: row.assignedAt,
+      data: this.toAssignmentView(row),
+    }))
+    
+    // Fetch relevant audit events for this asset
+    const auditRows = await this.audit.listAuditLogs({
+      organizationId,
+      resourceType: 'asset',
+      resourceId: id,
+      action: ['asset.created', 'asset.assigned', 'asset.returned', 'asset.maintenance', 'asset.retired'],
+    })
+    const auditEntries = auditRows.map(log => ({
+      type: 'audit',
+      id: log.id,
+      timestamp: new Date(log.occurredAt),
+      data: log,
+    }))
+    
+    const combined = [...assignmentEntries, ...auditEntries]
+    combined.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+    return combined
+  }
+
   // ---- Helpers ----
 
   private async requireAsset(

@@ -129,4 +129,13 @@ export class AssetsController {
   ): Promise<{ history: AssetAssignmentView[] }> {
     return { history: await this.assets.getAssetHistory(id, req.organization!.organizationId) }
   }
+
+  @Get(':id/timeline')
+  @AssetsPermissions('assets.read')
+  async timeline(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthRequest,
+  ): Promise<{ timeline: any[] }> {
+    return { timeline: await this.assets.getAssetTimeline(id, req.organization!.organizationId) }
+  }
 }
