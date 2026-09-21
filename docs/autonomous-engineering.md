@@ -45,17 +45,17 @@ finish, and stops cleanly.
 
 ## 2. Components
 
-| Component | Purpose |
-| --- | --- |
-| `agent-reka-runner.sh` | The single cron entrypoint. Owns state, budget, git safety, phases, commit and push. |
-| `.opencode/agents/reka-planner.md` | Primary agent that produces exactly one bounded plan. |
-| `.opencode/agents/reka-executor.md` | Primary agent that implements the active plan. Never commits. |
-| `.opencode/agents/reka-reviewer.md` | Primary agent that independently verifies work. Never edits code. |
-| `.opencode/agents/reka-fixer.md` | Primary agent that fixes only the reviewer's blocking issues. |
-| `scripts/autonomous/agent-json.py` | JSON/state helper (no `jq` dependency): read/write state, render markdown, scan debt, parse OpenCode usage. |
-| `scripts/autonomous/stub-opencode.sh` | Deterministic test double for `opencode run`. |
-| `scripts/autonomous/selftest.sh` | Offline test suite for the orchestration logic. |
-| `.reka-agent/` | Persistent, mostly gitignored state directory. |
+| Component                             | Purpose                                                                                                     |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `agent-reka-runner.sh`                | The single cron entrypoint. Owns state, budget, git safety, phases, commit and push.                        |
+| `.opencode/agents/reka-planner.md`    | Primary agent that produces exactly one bounded plan.                                                       |
+| `.opencode/agents/reka-executor.md`   | Primary agent that implements the active plan. Never commits.                                               |
+| `.opencode/agents/reka-reviewer.md`   | Primary agent that independently verifies work. Never edits code.                                           |
+| `.opencode/agents/reka-fixer.md`      | Primary agent that fixes only the reviewer's blocking issues.                                               |
+| `scripts/autonomous/agent-json.py`    | JSON/state helper (no `jq` dependency): read/write state, render markdown, scan debt, parse OpenCode usage. |
+| `scripts/autonomous/stub-opencode.sh` | Deterministic test double for `opencode run`.                                                               |
+| `scripts/autonomous/selftest.sh`      | Offline test suite for the orchestration logic.                                                             |
+| `.reka-agent/`                        | Persistent, mostly gitignored state directory.                                                              |
 
 The four agents are **primary** agents on purpose. OpenCode cannot select a
 subagent with `--agent`; autonomous phases must be primary agents.
@@ -75,15 +75,15 @@ any phase ─▶ BLOCKED   (budget, repeated failure, human decision, protected 
 
 Phases are stored in `.reka-agent/state.json` as `phase`:
 
-| Phase | Meaning |
-| --- | --- |
-| `IDLE` | No active plan. The runner may plan. |
-| `PLANNING` | A planner session is expected/underway. |
-| `EXECUTING` | A plan is active and not yet review-ready. |
-| `REVIEWING` | Work is ready for independent review. |
-| `FIXING` | Reviewer returned `FAIL`; a fixer session addresses blocking issues. |
-| `BLOCKED` | The run stopped and requires attention (`--resume` or a human). |
-| `COMPLETE` | The plan was reviewed, committed and closed. |
+| Phase       | Meaning                                                              |
+| ----------- | -------------------------------------------------------------------- |
+| `IDLE`      | No active plan. The runner may plan.                                 |
+| `PLANNING`  | A planner session is expected/underway.                              |
+| `EXECUTING` | A plan is active and not yet review-ready.                           |
+| `REVIEWING` | Work is ready for independent review.                                |
+| `FIXING`    | Reviewer returned `FAIL`; a fixer session addresses blocking issues. |
+| `BLOCKED`   | The run stopped and requires attention (`--resume` or a human).      |
+| `COMPLETE`  | The plan was reviewed, committed and closed.                         |
 
 Key behaviours:
 
@@ -230,13 +230,13 @@ the ignored `.reka-agent/` scaffolding if it does not exist yet.
 
 ### Recovery
 
-| Situation | Action |
-| --- | --- |
-| Pi rebooted mid-run | Just run again. The lock is stale and the phase is resumed. |
+| Situation                | Action                                                        |
+| ------------------------ | ------------------------------------------------------------- |
+| Pi rebooted mid-run      | Just run again. The lock is stale and the phase is resumed.   |
 | Run stopped at `BLOCKED` | Read `state.json`, open debt, and `logs/`. Fix or `--resume`. |
-| Debt requires a human | Make the decision, clear the debt item, then run. |
-| Bad autonomous commit | Revert it as a human; the runner will not fight you. |
-| Emergency stop | `./agent-reka-runner.sh --pause`. |
+| Debt requires a human    | Make the decision, clear the debt item, then run.             |
+| Bad autonomous commit    | Revert it as a human; the runner will not fight you.          |
+| Emergency stop           | `./agent-reka-runner.sh --pause`.                             |
 
 ## 11. Configuration
 
