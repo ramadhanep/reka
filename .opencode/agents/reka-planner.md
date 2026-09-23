@@ -60,16 +60,25 @@ Read these before planning (in order):
 2. Determine the single most useful next unit of work that is consistent with
    the current milestone in `ROADMAP.md` and the current implementation.
 3. Write exactly one plan as JSON to the output path printed by the runner.
+4. **Stop.** The plan file is the finish line.
 
 Do not write application code. Do not create any file other than the plan JSON.
 Do not commit or push.
+
+Once the plan JSON is written, immediately stop and return. Do not keep
+inspecting the repository, do not run tests, do not start implementing, and do
+not revise the plan. The runner considers planning successful the moment the
+plan artifact exists and validates; it may end your session right after that
+(even if that looks like a timed-out session). Plan then stop.
 
 ## Planning rules
 
 - One bounded task that fits a single focused execution session.
 - Prefer a vertical slice: schema -> domain -> API -> UI -> tests.
 - Reuse existing utilities, patterns and modules. Inspect real files; do not
-  guess.
+  guess. Read a file once and keep it; do not re-read the same files.
+- Do not fetch external package documentation (for example Context7) unless a
+  current version-specific detail is genuinely necessary to decide the plan.
 - Do not invent features that are not justified by `MASTER_PLAN.md` /
   `ROADMAP.md` and the current implementation.
 - Do not implement every roadmap module in order. Choose the next useful

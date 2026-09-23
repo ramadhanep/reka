@@ -89,11 +89,31 @@ Key behaviours:
 
 - On start, the runner reads `state.json`. If a plan is active it resumes it;
   it does not create a new plan.
+- **Planner completion is artifact-based.** Planning succeeds when a valid
+  `plan.json` exists for the run, regardless of the planner process exit code.
+  A planner that writes a valid plan and then keeps exploring until the
+  per-phase timeout is killed (`exit 124`) is treated as success: the plan is
+  preserved and the run moves to `EXECUTING`. A timeout or crash with **no**
+  valid plan is a genuine planning failure and is retried with
+  `consecutiveFailures`.
+- The runner persists the in-flight plan position (`phase: PLANNING`,
+  `activePlanId`) *before* invoking the planner, so a crash mid-planning
+  resumes the same plan directory on the next run instead of replanning. If a
+  validated active plan exists on disk but state lost the reference (for
+  example a previous planner timed out after writing it), the runner
+  discovers it via `plan-scan` and resumes it rather than creating a duplicate.
 - `BLOCKED` is terminal until `--resume` clears it. Debt marked
   `requiresHuman: true` is never auto-cleared.
 - `REKA_MAX_EXECUTION_SESSIONS` bounds executor/fixer sessions per run.
 - `REKA_MAX_REVIEW_LOOPS` bounds `REVIEWING → FIXING` cycles. Exceeding it
   records debt and moves to `BLOCKED`.
+
+Run status (`run.json.status`) describes how the process ended, not the
+engineering result: `COMPLETE` (plan closed), `INCOMPLETE` (process ended while
+a plan was still active in `EXECUTING`/`REVIEWING`/`FIXING`), `BLOCKED`, or
+`DONE` (process finished with no active plan, including genuine planning
+failures). The detailed outcome of each session is in `phases[]`,
+`failureReason` and the current `phase` in `state.json`.
 
 ## 4. Filesystem state
 
@@ -131,9 +151,13 @@ validates the JSON before trusting it; invalid output is treated as a failure,
 never as success.
 
 - **Planner** → `.reka-agent/plans/<PLAN-ID>/plan.json`
-  (`status`, `goal`, `scope`, `nonGoals`, `affectedModules`, `dependencies`,
-  `implementationSteps`, `testingStrategy`, `definitionOfDone`, `risks`,
-  `complexity`, `requiresHumanDecision`).
+  (`status` = `ACTIVE`, `goal`, `scope`, `nonGoals`, `affectedModules`,
+  `dependencies`, `implementationSteps`, `testingStrategy`,
+  `definitionOfDone`, `risks`, `complexity`, `requiresHumanDecision`). The
+  artifact must be valid JSON, carry the run's plan id and `status: ACTIVE`,
+  and be bounded (`scope`/`implementationSteps`/`definitionOfDone` non-empty).
+  The planner's session exit code does not determine success; the artifact
+  does.
 - **Executor** → `.reka-agent/runs/<RUN-ID>/executor-result.json`
   (`status` ∈ `COMPLETE|PARTIAL|BLOCKED`, `completed`, `remaining`, `testsRun`,
   `testsPassed`, `commitMessage`, `debt[]`, `escalation`).
@@ -230,13 +254,15 @@ the ignored `.reka-agent/` scaffolding if it does not exist yet.
 
 ### Recovery
 
-| Situation                | Action                                                        |
-| ------------------------ | ------------------------------------------------------------- |
-| Pi rebooted mid-run      | Just run again. The lock is stale and the phase is resumed.   |
-| Run stopped at `BLOCKED` | Read `state.json`, open debt, and `logs/`. Fix or `--resume`. |
-| Debt requires a human    | Make the decision, clear the debt item, then run.             |
-| Bad autonomous commit    | Revert it as a human; the runner will not fight you.          |
-| Emergency stop           | `./agent-reka-runner.sh --pause`.                             |
+| Situation                              | Action                                                       |
+| -------------------------------------- | ------------------------------------------------------------ |
+| Pi rebooted mid-run                    | Just run again. The lock is stale and the phase is resumed.   |
+| Planner timed out *after* writing plan | Nothing to do: the runner validates and preserves the plan, then moves to `EXECUTING`. |
+| Planner failed with no plan            | Retried automatically (`consecutiveFailures`); becomes `BLOCKED` after repeated failures. |
+| Run stopped at `BLOCKED`               | Read `state.json`, open debt, and `logs/`. Fix or `--resume`. |
+| Debt requires a human                  | Make the decision, clear the debt item, then run.             |
+| Bad autonomous commit                  | Revert it as a human; the runner will not fight you.          |
+| Emergency stop                         | `./agent-reka-runner.sh --pause`.                             |
 
 ## 11. Configuration
 
@@ -268,10 +294,15 @@ scripts/autonomous/selftest.sh
 ```
 
 `stub-opencode.sh` simulates scenarios (`happy`, `partial`, `blocked`, `crash`,
-`fail_then_pass`, `always_fail`, `invalid_review`, `decision`) in throwaway git
-repositories. The suite asserts phases, debt, commits, trailers, budget
-accounting, the pause switch, the lock, git safety, and that `--dry-run` is
-read-only.
+`fail_then_pass`, `always_fail`, `invalid_review`, `decision`,
+`planner_ok_crash`, `planner_timeout_with_plan`, `planner_timeout_no_plan`,
+`planner_nonzero_with_plan`, `planner_nonzero_bad`, `planner_zero_bad`) in
+throwaway git repositories. The suite asserts phases, debt, commits, trailers,
+budget accounting, the pause switch, the lock, git safety, and that `--dry-run`
+is read-only. It verifies that a valid plan is treated as planning success even
+when the planner exits `124` (timeout) or non-zero, that a timeout without a
+plan is a failure, and that interrupted/orphaned plans are resumed without
+being regenerated.
 
 ## 13. Guardrails and residual risks
 

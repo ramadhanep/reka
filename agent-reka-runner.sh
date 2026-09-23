@@ -197,6 +197,14 @@ load_active_plan() {
   fi
 }
 
+# Planner success is determined by the presence and validity of the plan
+# artifact, not by the planner process exit code (which may be 124 after the
+# planner timed out post-write, or a non-zero exit from a crash or model error).
+plan_is_valid() {
+  [ -n "$PLAN_JSON" ] && [ -f "$PLAN_JSON" ] || return 1
+  "$PY" "$JSON_HELPER" plan-validate "$PLAN_JSON" "$PLAN_ID" "$PLAN_DIR" >/dev/null 2>&1
+}
+
 budget_reset_if_new_day() {
   local today current
   today="$(date +%F)"
@@ -540,7 +548,18 @@ determine_phase() {
   local phase
   phase="$(state_phase)"
   case "$phase" in
-    BLOCKED | PLANNING | EXECUTING | REVIEWING | FIXING)
+    PLANNING)
+      # Crash/restart recovery: the planner may have written a valid plan and
+      # been killed (timeout or process death) before the state was flipped to
+      # EXECUTING. Resume that plan; never regenerate it.
+      if plan_is_valid; then
+        printf 'EXECUTING'
+      else
+        printf 'PLANNING'
+      fi
+      return
+      ;;
+    BLOCKED | EXECUTING | REVIEWING | FIXING)
       printf '%s' "$phase"
       return
       ;;
@@ -572,20 +591,70 @@ Plan ID: $PLAN_ID
 Output file (required): $PLAN_JSON
 
 Read your agent instructions and the project documents first. Inspect the
-repository, .reka-agent/state.json, open debt and recent runs. There is no
-active plan and no open debt for this planning cycle.
+repository, .reka-agent/state.json, open debt and recent runs.
 
 Produce exactly one bounded plan and write it as JSON to the output file above,
-matching the schema in your instructions. Do not write any other file. Do not
-implement code.
+matching the schema in your instructions. Write the plan file, THEN STOP
+immediately. Do not run tests, do not implement code, do not inspect more
+files, and do not revise the plan once it is written. The plan file being
+present and valid is the finish line; the runner may end your session right
+after it. Do not write any other file.
 EOF
 }
 
+# Adopt an already-valid plan: persist it as the active plan and move to
+# EXECUTING without invoking the planner again.
+adopt_plan() {
+  local pid="$1" pdir="$2"
+  PLAN_ID="$pid"
+  PLAN_DIR="$pdir"
+  PLAN_JSON="$pdir/plan.json"
+  jsetint "$STATE_FILE" consecutiveFailures 0
+  state_set_active_plan "$PLAN_ID" "$PLAN_DIR" ACTIVE
+  state_set_review_loop 0
+  state_set_phase EXECUTING
+  jsetstr "$RUN_JSON" planId "$PLAN_ID"
+  run_note "resumed existing plan $PLAN_ID"
+  log "plan resumed: $PLAN_ID - $(jget "$PLAN_JSON" goal)"
+}
+
 do_plan() {
-  PLAN_ID="PLAN-$(date +%Y%m%d-%H%M%S)-$$"
-  PLAN_DIR="$PLANS_DIR/$PLAN_ID"
-  PLAN_JSON="$PLAN_DIR/plan.json"
+  local reuse=0
+  if [ -n "$(state_get activePlanId)" ]; then
+    load_active_plan
+    if plan_is_valid; then
+      log "reusing existing valid plan $PLAN_ID (interrupted after plan write)"
+      adopt_plan "$PLAN_ID" "$PLAN_DIR"
+      return 0
+    fi
+    reuse=1
+  fi
+
+  if [ "$reuse" -eq 0 ]; then
+    # Discover plan: a previous planner process may have timed out or crashed
+    # after writing a valid ACTIVE plan that was never adopted. Resume it
+    # instead of creating a duplicate.
+    local candidate
+    candidate="$("$PY" "$JSON_HELPER" plan-scan "$PLANS_DIR" 2>/dev/null)"
+    if [ -n "$candidate" ]; then
+      log "adopting an existing active plan left by an interrupted planner: $candidate"
+      adopt_plan "$(basename "$candidate")" "$candidate"
+      return 0
+    fi
+    PLAN_ID="PLAN-$(date +%Y%m%d-%H%M%S)-$$"
+    PLAN_DIR="$PLANS_DIR/$PLAN_ID"
+    PLAN_JSON="$PLAN_DIR/plan.json"
+  else
+    log "reusing plan directory $PLAN_DIR for a fresh planner session"
+  fi
   mkdir -p "$PLAN_DIR"
+  rm -f "$PLAN_JSON"
+
+  # Persist the in-flight planning position before invoking the planner so a
+  # crash mid-planning can resume instead of creating a duplicate plan.
+  state_set_active_plan "$PLAN_ID" "$PLAN_DIR" PENDING
+  state_set_review_loop 0
+  state_set_phase PLANNING
 
   local outfile="$LOGS_DIR/$RUN_ID-plan.jsonl"
   local code timeout_s
@@ -598,44 +667,48 @@ do_plan() {
   bump_session_budget "$PHASE_TOKENS" "$PHASE_COST" 0
   record_phase PLANNING reka-planner "$REKA_MODEL_PLANNER" "$code" "$timed_out" "plan $PLAN_ID"
 
-  if phase_failed "$code"; then
-    log "planner did not complete cleanly (exit $code)"
-    local failures
-    failures="$(state_get consecutiveFailures)"
-    jsetint "$STATE_FILE" consecutiveFailures "$((failures + 1))"
-    [ "$((failures + 1))" -ge 3 ] && state_set_blocked "planner failed 3 times"
-    return 1
+  if plan_is_valid; then
+    # CASE A/B/D: a valid plan artifact wins regardless of the process exit
+    # code. The planner may have kept exploring and timed out after writing the
+    # plan (exit 124), or crashed with a valid plan on disk; the plan is kept.
+    if [ "$code" -ne 0 ]; then
+      run_note "planner exited $code${timed_out:+ (timed out)} after writing a valid plan; plan preserved"
+      log "planner exited $code after writing a valid plan; treating planning as successful"
+    fi
+    jsetint "$STATE_FILE" consecutiveFailures 0
+    jsetstr "$PLAN_JSON" id "$PLAN_ID"
+    jsetstr "$PLAN_JSON" status ACTIVE
+    "$PY" "$JSON_HELPER" plan-md "$PLAN_JSON" "$PLAN_DIR/plan.md" >/dev/null 2>&1
+
+    if [ "$(jget "$PLAN_JSON" requiresHumanDecision)" = "true" ]; then
+      local decision
+      decision="$(jget "$PLAN_JSON" humanDecision)"
+      materialize_debt_from_result "$PLAN_JSON" "$PLAN_ID" "Human decision required" "$decision" "true"
+      state_set_active_plan "$PLAN_ID" "$PLAN_DIR" ACTIVE
+      state_set_blocked "planning requires a human decision"
+      run_note "planning blocked on a human decision"
+      return 1
+    fi
+
+    state_set_active_plan "$PLAN_ID" "$PLAN_DIR" ACTIVE
+    state_set_review_loop 0
+    state_set_phase EXECUTING
+    jsetstr "$RUN_JSON" planId "$PLAN_ID"
+    log "plan created: $PLAN_ID - $(jget "$PLAN_JSON" goal)"
+    return 0
   fi
 
-  if ! jvalidate "$PLAN_JSON" || [ -z "$(jget "$PLAN_JSON" goal)" ]; then
-    log "planner did not produce a valid plan at $PLAN_JSON"
-    local failures
-    failures="$(state_get consecutiveFailures)"
-    jsetint "$STATE_FILE" consecutiveFailures "$((failures + 1))"
-    [ "$((failures + 1))" -ge 3 ] && state_set_blocked "planner produced invalid plan 3 times"
-    return 1
-  fi
-
-  jsetint "$STATE_FILE" consecutiveFailures 0
-  jsetstr "$PLAN_JSON" id "$PLAN_ID"
-  jsetstr "$PLAN_JSON" status ACTIVE
-  "$PY" "$JSON_HELPER" plan-md "$PLAN_JSON" "$PLAN_DIR/plan.md" >/dev/null 2>&1
-
-  if [ "$(jget "$PLAN_JSON" requiresHumanDecision)" = "true" ]; then
-    local decision
-    decision="$(jget "$PLAN_JSON" humanDecision)"
-    materialize_debt_from_result "$PLAN_JSON" "$PLAN_ID" "Human decision required" "$decision" "true"
-    state_set_blocked "planning requires a human decision"
-    run_note "planning blocked on a human decision"
-    return 1
-  fi
-
-  state_set_active_plan "$PLAN_ID" "$PLAN_DIR" ACTIVE
-  state_set_review_loop 0
-  state_set_phase EXECUTING
-  jsetstr "$RUN_JSON" planId "$PLAN_ID"
-  log "plan created: $PLAN_ID - $(jget "$PLAN_JSON" goal)"
-  return 0
+  # CASE C: no valid plan exists. A non-zero/timeout exit is a genuine planning
+  # failure. Clear the in-flight plan position so the next run plans fresh.
+  log "planner exited $code without a valid plan at $PLAN_JSON; planning failed"
+  rm -rf "$PLAN_DIR"
+  state_clear_active_plan
+  state_set_phase IDLE
+  local failures
+  failures="$(state_get consecutiveFailures)"
+  jsetint "$STATE_FILE" consecutiveFailures "$((failures + 1))"
+  [ "$((failures + 1))" -ge 3 ] && state_set_blocked "planner produced no valid plan 3 times"
+  return 1
 }
 
 # ---------------------------------------------------------------------------
@@ -1133,11 +1206,15 @@ main_run() {
 }
 
 run_status() {
-  if [ "$(state_phase)" = "BLOCKED" ]; then
-    printf 'BLOCKED'
-  else
-    printf 'DONE'
-  fi
+  # The run status describes how the process ended, not the engineering result.
+  # phase describes the engineering position; examine the phases[] array and
+  # failureReason for the detailed outcome of each session.
+  case "$(state_phase)" in
+    BLOCKED) printf 'BLOCKED' ;;
+    COMPLETE) printf 'COMPLETE' ;;
+    EXECUTING | REVIEWING | FIXING) printf 'INCOMPLETE' ;;
+    *) printf 'DONE' ;;
+  esac
 }
 
 # ---------------------------------------------------------------------------

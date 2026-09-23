@@ -34,6 +34,80 @@ def save(path: str, data: Any) -> None:
     os.replace(tmp, path)
 
 
+def plan_validate(
+    path: str, expected_id: str = "", expected_dir: str = "", quiet: bool = False
+) -> int:
+    """Validate a plan artifact against the REKA plan schema.
+
+    Planner success is determined by the existence and validity of this
+    artifact, not by the planner process exit code. Returns 0 when the plan is
+    a complete, bounded, active plan for the expected plan directory.
+    """
+    try:
+        data = load(path)
+    except (json.JSONDecodeError, OSError) as exc:
+        if not quiet:
+            sys.stderr.write(f"plan invalid: cannot read {path}: {exc}\n")
+        return 1
+    if not isinstance(data, dict):
+        if not quiet:
+            sys.stderr.write("plan invalid: not a JSON object\n")
+        return 1
+
+    problems: list[str] = []
+    if not data.get("id"):
+        problems.append("missing id")
+    if expected_id and data.get("id") != expected_id:
+        problems.append(f"id mismatch: expected {expected_id!r}, got {data.get('id')!r}")
+    if data.get("status") != "ACTIVE":
+        problems.append("status is not ACTIVE")
+    if not isinstance(data.get("goal"), str) or not data["goal"].strip():
+        problems.append("goal missing or empty")
+    if not isinstance(data.get("scope"), list) or not data["scope"]:
+        problems.append("scope missing or not a non-empty bounded list")
+    if not isinstance(data.get("implementationSteps"), list) or not data["implementationSteps"]:
+        problems.append("implementationSteps missing or empty")
+    if not isinstance(data.get("testingStrategy"), str) or not data["testingStrategy"].strip():
+        problems.append("testingStrategy missing or empty")
+    if not isinstance(data.get("definitionOfDone"), list) or not data["definitionOfDone"]:
+        problems.append("definitionOfDone missing or empty")
+    if not isinstance(data.get("nonGoals"), list):
+        problems.append("nonGoals missing or not a list")
+    if not isinstance(data.get("requiresHumanDecision"), bool):
+        problems.append("requiresHumanDecision missing or not a boolean")
+    if expected_dir:
+        actual_dir = os.path.dirname(os.path.abspath(path))
+        if actual_dir != os.path.abspath(expected_dir):
+            problems.append(
+                f"plan is not inside the expected plan directory {expected_dir}"
+            )
+    if problems:
+        if not quiet:
+            sys.stderr.write("plan invalid: " + "; ".join(problems) + "\n")
+        return 1
+    return 0
+
+
+def plan_scan(plans_dir: str) -> str | None:
+    """Return the directory of the most recent valid ACTIVE plan, if any.
+
+    The runner uses this to discover and resume a plan a previous (possibly
+    timed-out or crashed) planner left behind, instead of creating a duplicate.
+    """
+    if not os.path.isdir(plans_dir):
+        return None
+    for name in sorted(os.listdir(plans_dir), reverse=True):
+        plan_dir = os.path.join(plans_dir, name)
+        if not os.path.isdir(plan_dir):
+            continue
+        plan_path = os.path.join(plan_dir, "plan.json")
+        if not os.path.isfile(plan_path):
+            continue
+        if plan_validate(plan_path, name, plan_dir, quiet=True) == 0:
+            return plan_dir
+    return None
+
+
 def get_path(data: Any, path: str) -> Any:
     current = data
     if not path:
@@ -339,6 +413,17 @@ def main() -> int:
             load(path)
         except (json.JSONDecodeError, OSError):
             return 1
+        return 0
+
+    if op == "plan-validate":
+        expected_id = sys.argv[3] if len(sys.argv) > 3 else ""
+        expected_dir = sys.argv[4] if len(sys.argv) > 4 else ""
+        return plan_validate(path, expected_id, expected_dir)
+
+    if op == "plan-scan":
+        found = plan_scan(path)
+        if found:
+            print(found)
         return 0
 
     if op == "events-stats":

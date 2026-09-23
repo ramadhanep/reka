@@ -140,7 +140,7 @@ test_happy_path() {
   assert_eq 1 "$(count_plans "$repo")" "exactly one plan created"
   assert_contains "Reka-Agent-Run:" "$(git -C "$repo" log -1 --format=%B)" "commit carries run trailer"
   assert_contains "Reka-Agent-Plan:" "$(git -C "$repo" log -1 --format=%B)" "commit carries plan trailer"
-  assert_eq DONE "$(jval "$repo/.reka-agent/runs/$(jval "$repo/.reka-agent/state.json" lastRunId)/run.json" status)" "run recorded as DONE"
+  assert_eq COMPLETE "$(jval "$repo/.reka-agent/runs/$(jval "$repo/.reka-agent/state.json" lastRunId)/run.json" status)" "run recorded as COMPLETE"
   assert_eq 3 "$(jval "$repo/.reka-agent/state.json" budget.sessions)" "three agent sessions were counted"
   assert_eq 3702 "$(jval "$repo/.reka-agent/state.json" budget.tokens)" "token usage was accumulated"
   [ "$("$PY" -c 'import json,sys;print(1 if json.load(open(sys.argv[1]))["budget"]["cost"] > 0 else 0)' "$repo/.reka-agent/state.json")" = 1 ] \
@@ -304,6 +304,159 @@ test_token_accounting_shapes() {
   rm -rf "$tmp"
 }
 
+last_run_json() {
+  printf '%s/.reka-agent/runs/%s/run.json' "$1" "$(jval "$1/.reka-agent/state.json" lastRunId)"
+}
+
+last_run_state() {
+  printf '%s/.reka-agent/state.json' "$1"
+}
+
+test_planner_success_persists_plan() {
+  printf '\n[planner success + valid plan -> EXECUTING]\n'
+  local repo
+  repo="$(make_repo)"
+  run_runner "$repo" planner_ok_crash
+  assert_eq EXECUTING "$(jval "$(last_run_state "$repo")" phase)" "phase is EXECUTING"
+  assert_eq 1 "$(count_plans "$repo")" "exactly one plan created"
+  assert_eq 0 "$(jval "$(last_run_state "$repo")" consecutiveFailures)" "failures reset after success"
+  [ -n "$(jval "$(last_run_state "$repo")" activePlanId)" ] && ok "active plan persisted" || bad "active plan not persisted"
+  assert_eq ACTIVE "$(jval "$(last_run_state "$repo")" planStatus)" "plan status ACTIVE"
+  assert_eq INCOMPLETE "$(jval "$(last_run_json "$repo")" status)" "run finished with plan still active (not DONE-as-success)"
+  assert_contains '"phase": "PLANNING"' "$(cat "$(last_run_json "$repo")")" "planning session recorded"
+  rm -rf "$repo"
+}
+
+test_planner_timeout_with_valid_plan_recovers() {
+  printf '\n[planner timeout + valid plan -> EXECUTING]\n'
+  local repo
+  repo="$(make_repo)"
+  run_runner "$repo" planner_timeout_with_plan
+  assert_eq EXECUTING "$(jval "$(last_run_state "$repo")" phase)" "phase is EXECUTING despite timeout"
+  assert_eq 1 "$(count_plans "$repo")" "plan preserved, not regenerated"
+  assert_eq ACTIVE "$(jval "$(last_run_state "$repo")" planStatus)" "plan status ACTIVE"
+  assert_contains '"exitCode": 124' "$(cat "$(last_run_json "$repo")")" "timeout exit recorded"
+  assert_contains '"timedOut": true' "$(cat "$(last_run_json "$repo")")" "timeout flag recorded"
+  assert_contains "plan preserved" "$(cat "$(last_run_json "$repo")")" "note records plan preserved after timeout"
+  rm -rf "$repo"
+}
+
+test_planner_timeout_no_plan_is_failure() {
+  printf '\n[planner timeout + no plan -> failure]\n'
+  local repo
+  repo="$(make_repo)"
+  run_runner "$repo" planner_timeout_no_plan
+  assert_eq IDLE "$(jval "$(last_run_state "$repo")" phase)" "phase returns IDLE on genuine planning failure"
+  assert_eq 1 "$(jval "$(last_run_state "$repo")" consecutiveFailures)" "consecutiveFailures incremented"
+  assert_eq 0 "$(count_plans "$repo")" "no plan persisted"
+  [ -z "$(jval "$(last_run_state "$repo")" activePlanId)" ] && ok "no active plan claimed" || bad "phantom active plan"
+  assert_contains '"exitCode": 124' "$(cat "$(last_run_json "$repo")")" "timeout recorded as a failed planning"
+  rm -rf "$repo"
+}
+
+test_planner_nonzero_with_valid_plan_preserved() {
+  printf '\n[planner non-zero + valid plan -> plan preserved]\n'
+  local repo
+  repo="$(make_repo)"
+  run_runner "$repo" planner_nonzero_with_plan
+  assert_eq EXECUTING "$(jval "$(last_run_state "$repo")" phase)" "valid plan proceeds despite non-zero exit"
+  assert_eq 1 "$(count_plans "$repo")" "plan preserved"
+  assert_eq ACTIVE "$(jval "$(last_run_state "$repo")" planStatus)" "plan status ACTIVE"
+  assert_contains '"exitCode": 3' "$(cat "$(last_run_json "$repo")")" "non-zero exit recorded"
+  rm -rf "$repo"
+}
+
+test_planner_nonzero_invalid_plan_is_failure() {
+  printf '\n[planner non-zero + invalid plan -> failure]\n'
+  local repo
+  repo="$(make_repo)"
+  run_runner "$repo" planner_nonzero_bad
+  assert_eq IDLE "$(jval "$(last_run_state "$repo")" phase)" "phase returns IDLE"
+  assert_eq 1 "$(jval "$(last_run_state "$repo")" consecutiveFailures)" "consecutiveFailures incremented"
+  assert_eq 0 "$(count_plans "$repo")" "no plan persisted"
+  assert_contains '"exitCode": 3' "$(cat "$(last_run_json "$repo")")" "non-zero exit recorded"
+  rm -rf "$repo"
+}
+
+test_planner_zero_exit_invalid_plan_is_failure() {
+  printf '\n[planner exit 0 + invalid plan -> failure (not trusted)]\n'
+  local repo
+  repo="$(make_repo)"
+  run_runner "$repo" planner_zero_bad
+  assert_eq IDLE "$(jval "$(last_run_state "$repo")" phase)" "phase returns IDLE"
+  assert_eq 1 "$(jval "$(last_run_state "$repo")" consecutiveFailures)" "consecutiveFailures incremented"
+  assert_eq 0 "$(count_plans "$repo")" "no plan persisted"
+  rm -rf "$repo"
+}
+
+test_restart_resumes_existing_plan() {
+  printf '\n[runner restart with active plan resumes, no replan]\n'
+  local repo
+  repo="$(make_repo)"
+  run_runner "$repo" planner_ok_crash
+  assert_eq EXECUTING "$(jval "$(last_run_state "$repo")" phase)" "interrupted run leaves EXECUTING"
+  run_runner "$repo" happy
+  assert_eq COMPLETE "$(jval "$(last_run_state "$repo")" phase)" "restart executes from the existing plan"
+  assert_eq 1 "$(count_plans "$repo")" "no duplicate plan created on resume"
+  rm -rf "$repo"
+}
+
+test_restart_after_planner_timeout_resumes() {
+  printf '\n[restart after planner timeout with valid plan resumes]\n'
+  local repo
+  repo="$(make_repo)"
+  run_runner "$repo" planner_timeout_with_plan
+  assert_eq EXECUTING "$(jval "$(last_run_state "$repo")" phase)" "timed-out planner still leaves a valid active plan"
+  run_runner "$repo" happy
+  assert_eq COMPLETE "$(jval "$(last_run_state "$repo")" phase)" "next run completes from the preserved plan"
+  assert_eq 1 "$(count_plans "$repo")" "plan was never regenerated"
+  rm -rf "$repo"
+}
+
+test_interrupted_planning_recovers_without_replan() {
+  printf '\n[crash mid-PLANNING with valid plan recovers without replan]\n'
+  local repo
+  repo="$(make_repo)"
+  run_runner "$repo" planner_ok_crash
+  "$PY" "$HELPER" setstr "$repo/.reka-agent/state.json" phase PLANNING
+  "$PY" "$HELPER" setstr "$repo/.reka-agent/state.json" planStatus PENDING
+  run_runner "$repo" happy
+  assert_eq COMPLETE "$(jval "$(last_run_state "$repo")" phase)" "recovered plan executed and completed"
+  assert_eq 1 "$(count_plans "$repo")" "existing plan resumed, no duplicate created"
+  rm -rf "$repo"
+}
+
+test_orphaned_active_plan_is_resumed() {
+  printf '\n[orphaned valid plan is discovered and resumed, not duplicated]\n'
+  local repo
+  repo="$(make_repo)"
+  mkdir -p "$repo/.reka-agent/plans/PLAN-ORPHAN-TEST0001"
+  cat >"$repo/.reka-agent/plans/PLAN-ORPHAN-TEST0001/plan.json" <<'JSON'
+{
+  "id": "PLAN-ORPHAN-TEST0001",
+  "status": "ACTIVE",
+  "goal": "Resume the orphaned stub feature",
+  "whyNow": "a previous planner was interrupted after writing this",
+  "scope": ["one small change"],
+  "nonGoals": ["everything else"],
+  "affectedModules": ["core"],
+  "dependencies": [],
+  "implementationSteps": ["modify a file", "test it"],
+  "testingStrategy": "run the stub check",
+  "definitionOfDone": ["file changed", "tests pass"],
+  "risks": ["none"],
+  "complexity": "S",
+  "requiresHumanDecision": false,
+  "humanDecision": ""
+}
+JSON
+  run_runner "$repo" happy
+  assert_eq COMPLETE "$(jval "$(last_run_state "$repo")" phase)" "orphaned plan executed and completed"
+  assert_eq 1 "$(count_plans "$repo")" "no duplicate plan created"
+  assert_contains "resumed existing plan" "$(cat "$(last_run_json "$repo")")" "runner recorded the resume"
+  rm -rf "$repo"
+}
+
 main() {
   printf 'REKA autonomous runner selftest\n'
   test_happy_path
@@ -319,6 +472,16 @@ main() {
   test_dry_run_changes_nothing
   test_daily_budget_reset
   test_token_accounting_shapes
+  test_planner_success_persists_plan
+  test_planner_timeout_with_valid_plan_recovers
+  test_planner_timeout_no_plan_is_failure
+  test_planner_nonzero_with_valid_plan_preserved
+  test_planner_nonzero_invalid_plan_is_failure
+  test_planner_zero_exit_invalid_plan_is_failure
+  test_restart_resumes_existing_plan
+  test_restart_after_planner_timeout_resumes
+  test_interrupted_planning_recovers_without_replan
+  test_orphaned_active_plan_is_resumed
   printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
   [ "$FAIL" -eq 0 ]
 }

@@ -7,6 +7,11 @@
 # Scenario is selected with STUB_SCENARIO. Reviewer call counting uses
 # STUB_STATE/review-count.
 #
+# Scenarios: happy, decision, partial, blocked, crash, fail_then_pass,
+# always_fail, invalid_review, planner_ok_crash, planner_timeout_with_plan,
+# planner_timeout_no_plan, planner_nonzero_with_plan, planner_nonzero_bad,
+# planner_zero_bad.
+#
 set -u
 
 AGENT=""
@@ -64,6 +69,18 @@ comment="Autonomous stub change for $PLAN_ID"
 case "$AGENT" in
   reka-planner)
     mkdir -p "$(dirname "$OUT_FILE")"
+    case "$SCENARIO" in
+      planner_timeout_no_plan)
+        emit_events
+        exit 124
+        ;;
+      planner_nonzero_bad | planner_zero_bad)
+        printf 'this is not a plan\n' >"$OUT_FILE"
+        emit_events
+        [ "$SCENARIO" = "planner_zero_bad" ] && exit 0
+        exit 3
+        ;;
+    esac
     if [ "$SCENARIO" = "decision" ]; then
       cat >"$OUT_FILE" <<JSON
 {
@@ -108,12 +125,16 @@ JSON
 JSON
     fi
     emit_events
-    exit 0
+    case "$SCENARIO" in
+      planner_timeout_with_plan) exit 124 ;;
+      planner_nonzero_with_plan) exit 3 ;;
+      *) exit 0 ;;
+    esac
     ;;
 
   reka-executor)
     case "$SCENARIO" in
-      crash)
+      crash | planner_ok_crash | planner_timeout_with_plan | planner_nonzero_with_plan)
         emit_events
         exit 3
         ;;
