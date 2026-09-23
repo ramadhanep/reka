@@ -14,6 +14,7 @@ import { REQUEST_ID_HEADER } from '../src/common/request-context.js'
 import {
   migrateTestDatabase,
   resetTestDatabase,
+  TEST_DB_URL,
   truncateAllExcept,
   type Database,
 } from './support.js'
@@ -31,7 +32,7 @@ describe('Operational Foundation (request IDs, structured errors, security heade
 
   beforeAll(async () => {
     process.env.APP_ENV = 'test'
-    process.env.DATABASE_URL = 'postgres://reka:reka@localhost:5432/reka_test'
+    process.env.DATABASE_URL = TEST_DB_URL
     await resetTestDatabase()
     database = await migrateTestDatabase()
 

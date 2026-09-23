@@ -4,14 +4,21 @@ import { Pool } from 'pg'
 import { migrate } from 'drizzle-orm/node-postgres/migrator'
 import { createDatabase, type Database } from '@reka/database'
 
-export const TEST_DB_URL = 'postgres://reka:reka@localhost:5432/reka_test'
-const MAINTENANCE_DB_URL = 'postgres://reka:reka@localhost:5432/postgres'
-const TEST_DB_NAME = 'reka_test'
+export const TEST_DB_URL =
+  process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/reka_test'
+
+const TEST_DB_NAME = new URL(TEST_DB_URL).pathname.slice(1)
+
+function maintenanceDbUrl(): string {
+  const url = new URL(TEST_DB_URL)
+  url.pathname = '/postgres'
+  return url.toString()
+}
 
 const migrationsFolder = resolve(dirname(fileURLToPath(import.meta.url)), '../drizzle')
 
 export async function resetTestDatabase(): Promise<void> {
-  const admin = new Pool({ connectionString: MAINTENANCE_DB_URL })
+  const admin = new Pool({ connectionString: maintenanceDbUrl() })
   try {
     await admin.query(
       `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()`,

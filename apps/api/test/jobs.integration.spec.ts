@@ -11,7 +11,7 @@ import {
   JOB_STATUS,
   type Database,
 } from '@reka/jobs'
-import { migrateTestDatabase, resetTestDatabase } from './support.js'
+import { migrateTestDatabase, resetTestDatabase, TEST_DB_URL } from './support.js'
 
 function drain(): Promise<void> {
   return database.pool.query('TRUNCATE TABLE jobs CASCADE')
@@ -22,8 +22,7 @@ let database: Database
 describe('PostgreSQL-backed jobs (worker queue)', () => {
   beforeAll(async () => {
     process.env.APP_ENV = 'test'
-    process.env.DATABASE_URL =
-      process.env.DATABASE_URL ?? 'postgres://reka:reka@localhost:5432/reka_test'
+    process.env.DATABASE_URL = TEST_DB_URL
     await resetTestDatabase()
     database = await migrateTestDatabase()
   })
