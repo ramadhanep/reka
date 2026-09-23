@@ -5,7 +5,7 @@ import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics'
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-grpc'
 import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-grpc'
 import { SimpleLogRecordProcessor } from '@opentelemetry/sdk-logs'
-import { Resource } from '@opentelemetry/resources'
+import { resourceFromAttributes } from '@opentelemetry/resources'
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions'
 import { getConfig } from '@reka/config'
 
@@ -26,7 +26,7 @@ export function initTelemetry(): NodeSDK | null {
   const logExporter = new OTLPLogExporter({ url: `${exporterEndpoint}/v1/logs` })
 
   sdk = new NodeSDK({
-    resource: new Resource({
+    resource: resourceFromAttributes({
       [ATTR_SERVICE_NAME]: serviceName,
       [ATTR_SERVICE_VERSION]: '0.1.0',
     }),
@@ -35,7 +35,7 @@ export function initTelemetry(): NodeSDK | null {
       exporter: metricExporter,
       exportIntervalMillis: 10000,
     }),
-    logRecordProcessor: new SimpleLogRecordProcessor(logExporter),
+    logRecordProcessors: [new SimpleLogRecordProcessor({ exporter: logExporter })],
     instrumentations: [getNodeAutoInstrumentations()],
   })
 
