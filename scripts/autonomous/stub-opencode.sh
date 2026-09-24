@@ -10,7 +10,10 @@
 # Scenarios: happy, decision, partial, blocked, crash, fail_then_pass,
 # always_fail, invalid_review, planner_ok_crash, planner_timeout_with_plan,
 # planner_timeout_no_plan, planner_nonzero_with_plan, planner_nonzero_bad,
-# planner_zero_bad.
+# planner_zero_bad, crash_after_change.
+#
+# The stub modifies ${STUB_REPO}/src.txt, so the stub plans declare that path
+# as their only affected module.
 #
 set -u
 
@@ -111,7 +114,7 @@ JSON
   "whyNow": "the selftest needs a bounded plan",
   "scope": ["one small change"],
   "nonGoals": ["everything else"],
-  "affectedModules": ["core"],
+  "affectedModules": ["src.txt"],
   "dependencies": [],
   "implementationSteps": ["modify a file", "test it"],
   "testingStrategy": "run the stub check",
@@ -134,6 +137,13 @@ JSON
 
   reka-executor)
     case "$SCENARIO" in
+      crash_after_change)
+        # Emulates an executor that made valid partial changes and then the
+        # model/tool runtime failed before writing the result file.
+        printf '%s\n' "$comment" >>"$STUB_REPO/src.txt"
+        emit_events
+        exit 3
+        ;;
       crash | planner_ok_crash | planner_timeout_with_plan | planner_nonzero_with_plan)
         emit_events
         exit 3

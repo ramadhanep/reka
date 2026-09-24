@@ -439,7 +439,7 @@ test_orphaned_active_plan_is_resumed() {
   "whyNow": "a previous planner was interrupted after writing this",
   "scope": ["one small change"],
   "nonGoals": ["everything else"],
-  "affectedModules": ["core"],
+  "affectedModules": ["src.txt"],
   "dependencies": [],
   "implementationSteps": ["modify a file", "test it"],
   "testingStrategy": "run the stub check",
@@ -455,6 +455,111 @@ JSON
   assert_eq 1 "$(count_plans "$repo")" "no duplicate plan created"
   assert_contains "resumed existing plan" "$(cat "$(last_run_json "$repo")")" "runner recorded the resume"
   rm -rf "$repo"
+}
+
+current_plan_dir() {
+  printf '%s/.reka-agent/plans/%s' "$1" "$(jval "$1/.reka-agent/state.json" activePlanId)"
+}
+
+test_executor_crash_preserves_work_and_resumes() {
+  printf '\n[executor crash after plan-scoped changes: work preserved, plan resumes]\n'
+  local repo plan_dir exec_file crash_run
+  repo="$(make_repo)"
+  run_runner "$repo" crash_after_change
+  plan_dir="$(current_plan_dir "$repo")"
+  crash_run="$repo/.reka-agent/runs/$(jval "$repo/.reka-agent/state.json" lastRunId)"
+
+  assert_eq EXECUTING "$(jval "$repo/.reka-agent/state.json" phase)" "non-zero exit leaves phase EXECUTING"
+  assert_eq 1 "$(git -C "$repo" rev-list --count HEAD)" "crash run committed nothing"
+  assert_contains "Autonomous stub change" "$(cat "$repo/src.txt")" "partial implementation is preserved"
+  assert_eq "{}" "$(cat "$crash_run/executor-result.json")" "executor result missing after failure"
+  [ "$(count_open_debt "$repo")" -ge 1 ] && ok "generic debt recorded the interruption" || bad "expected generic debt"
+  exec_file="$plan_dir/execution.json"
+  [ -f "$exec_file" ] && ok "execution snapshot persisted" || bad "execution snapshot missing"
+  assert_contains "src.txt" "$(jval "$exec_file" manifest)" "manifest lists the plan-owned path"
+  assert_eq "$(git -C "$repo" rev-parse HEAD)" "$(jval "$exec_file" baseSha)" "base sha locked at adoption"
+
+  run_runner "$repo" happy
+  assert_eq COMPLETE "$(jval "$(last_run_state "$repo")" phase)" "next run resumes the active plan"
+  assert_eq 2 "$(git -C "$repo" rev-list --count HEAD)" "successful recovery commits"
+  assert_contains "Autonomous stub change" "$(git -C "$repo" show HEAD:src.txt)" "partial implementation survives the commit"
+  assert_eq 0 "$(count_open_debt "$repo")" "plan debt resolved on completion"
+  assert_contains '"phase": "REVIEWING"' "$(cat "$(last_run_json "$repo")")" "recovery proceeded to the reviewer"
+  assert_eq 1 "$(count_plans "$repo")" "plan was resumed, never regenerated"
+  rm -rf "$repo"
+}
+
+test_executor_crash_then_human_change_stops() {
+  printf '\n[unrelated human change after an executor crash stops the next run]\n'
+  local repo rc
+  repo="$(make_repo)"
+  run_runner "$repo" crash_after_change
+  printf 'human work\n' >"$repo/human.txt"
+  run_runner "$repo" happy
+  rc=$?
+  assert_nonzero "$rc" "runner stops when human changes are present"
+  assert_eq 1 "$(count_runs "$repo")" "no fresh run was started"
+  assert_contains "not attributable" "$(cat "$repo/.reka-agent/runner.out")" "stop message explains attribution"
+  assert_eq EXECUTING "$(jval "$repo/.reka-agent/state.json" phase)" "the plan stays active for a later safe resume"
+  assert_contains "Autonomous stub change" "$(cat "$repo/src.txt")" "plan-owned work is never discarded"
+  rm -rf "$repo"
+}
+
+test_attribution_rules_deterministic() {
+  printf '\n[deterministic plan attribution: module prefix, manifest, shared artifacts]\n'
+  local tmp repo meta plan rc
+  tmp="$(mktemp -d "${TMPDIR:-/tmp}/reka-attribution.XXXXXX")"
+  repo="$tmp/repo"
+  meta="$tmp/meta"
+  mkdir -p "$repo" "$meta"
+  git init -q -b main "$repo"
+  git -C "$repo" config user.email "agent@reka.test"
+  git -C "$repo" config user.name "Reka Agent"
+  mkdir -p "$repo/packages/jobs/src" "$repo/apps/worker" "$repo/other"
+  printf 'a\n' >"$repo/packages/jobs/src/a.ts"
+  printf 'b\n' >"$repo/apps/worker/b.ts"
+  git -C "$repo" add -A
+  git -C "$repo" commit -q -m initial
+  plan="$meta/plans.json"
+
+  cat >"$plan" <<'JSON'
+{
+  "id": "P1",
+  "status": "ACTIVE",
+  "goal": "g",
+  "whyNow": "w",
+  "scope": ["s"],
+  "nonGoals": [],
+  "affectedModules": ["packages/jobs", "apps/worker"],
+  "dependencies": [],
+  "implementationSteps": ["i"],
+  "testingStrategy": "t",
+  "definitionOfDone": ["d"],
+  "risks": ["r"],
+  "complexity": "S",
+  "requiresHumanDecision": false,
+  "humanDecision": ""
+}
+JSON
+
+  printf 'x\n' >>"$repo/packages/jobs/src/a.ts"                       # inside module -> attributed
+  printf 'x\n' >>"$repo/apps/worker/b.ts"                             # inside module -> attributed
+  printf 'x\n' >>"$repo/pnpm-lock.yaml"                               # shared artifact (plan touches apps) -> attributed
+  printf 'x\n' >>"$repo/other/leak.txt"                               # outside -> unattributed
+
+  # Module-prefix + shared artifacts cover everything except other/leak.txt.
+  assert_contains "other/leak.txt" "$("$PY" "$HELPER" verify-attribution - "$plan" "$repo" 2>&1)" "only the out-of-module path is flagged"
+  "$PY" "$HELPER" verify-attribution - "$plan" "$repo" >/dev/null 2>&1
+  rc=$?
+  assert_nonzero "$rc" "verify-attribution exits nonzero with unattributed paths"
+
+  rm -f "$repo/other/leak.txt"
+  "$PY" "$HELPER" verify-attribution - "$plan" "$repo" >"$meta/out.txt" 2>&1
+  rc=$?
+  assert_eq "0" "$rc" "clean tree passes attribution with exit 0"
+  assert_eq "" "$(cat "$meta/out.txt")" "clean tree flags nothing"
+
+  rm -rf "$tmp"
 }
 
 main() {
@@ -482,6 +587,9 @@ main() {
   test_restart_after_planner_timeout_resumes
   test_interrupted_planning_recovers_without_replan
   test_orphaned_active_plan_is_resumed
+  test_executor_crash_preserves_work_and_resumes
+  test_executor_crash_then_human_change_stops
+  test_attribution_rules_deterministic
   printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
   [ "$FAIL" -eq 0 ]
 }

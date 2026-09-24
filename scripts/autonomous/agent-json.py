@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 import tempfile
 from typing import Any
@@ -298,6 +299,170 @@ def debt_scan(debt_dir: str) -> str:
     return "\n".join(rows)
 
 
+# ---------------------------------------------------------------------------
+# Plan-scoped execution metadata (recovery ownership)
+# ---------------------------------------------------------------------------
+#
+# An interrupted executor session may leave a dirty working tree. The runner
+# records, per plan, the base revision it started from and the ever-growing
+# manifest of file paths the autonomous system has changed as part of that
+# plan (plan.json: execution.json). Every changed path must be attributable to
+# the plan -- either it is already in the manifest, or it matches one of the
+# plan's affectedModules, or (when the plan can touch workspace packages) it is
+# a shared dependency artifact such as pnpm-lock.yaml. Anything else is treated
+# as human work and stops the next run.
+
+
+def _git(repo: str, *args: str) -> list[str]:
+    result = subprocess.run(
+        ["git", "-C", repo, *args],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return []
+    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
+
+def _module_prefixes(plan: dict) -> list[str]:
+    """Normalize affectedModules entries into unambiguous path prefixes.
+
+    An entry such as 'docs (ROADMAP.md, DEVELOPMENT.md, ...)' normalizes to
+    'docs'; directory entries such as 'apps/api/test' stay as-is.
+    """
+    prefixes = []
+    for entry in plan.get("affectedModules") or []:
+        if not isinstance(entry, str):
+            continue
+        entry = entry.split(" (", 1)[0].strip()
+        if entry:
+            prefixes.append(entry)
+    return prefixes
+
+
+def _touches_deps(prefixes: list[str]) -> bool:
+    return any(p.startswith("packages/") or p.startswith("apps/") for p in prefixes)
+
+
+def _changed_paths(repo: str, base: str) -> list[str]:
+    """All working-tree changes (tracked and untracked) relative to base."""
+    paths = _git(repo, "diff", "--name-only", base) if base else []
+    paths += _git(repo, "ls-files", "--others", "--exclude-standard")
+    return sorted(set(paths))
+
+
+def _plausible(path: str, prefixes: list[str], manifest: set, touches_deps: bool) -> bool:
+    if path in manifest:
+        return True
+    for prefix in prefixes:
+        if path == prefix or path.startswith(prefix + "/"):
+            return True
+    if touches_deps and path in ("package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml"):
+        return True
+    return False
+
+
+def capture_execution(
+    exec_path: str, plan_path: str, repo: str
+) -> list[str]:
+    """Persist the plan execution snapshot from the live working tree.
+
+    Updates the manifest (files the plan now owns) and the unattributed list
+    (files that cannot be attributed to the plan). Returns the unattributed
+    paths; the caller treats a non-empty result as a recovery stop signal for
+    the next run.
+    """
+    import datetime
+
+    exec_data = load(exec_path)
+    if not isinstance(exec_data, dict):
+        exec_data = {}
+    plan = load(plan_path)
+
+    base = exec_data.get("baseSha") or ""
+    if not base:
+        heads = _git(repo, "rev-parse", "HEAD")
+        base = heads[0] if heads else ""
+
+    prefixes = _module_prefixes(plan)
+    touches = _touches_deps(prefixes)
+    manifest = set(exec_data.get("manifest", []) or [])
+    handled = set(manifest)
+
+    changed = _changed_paths(repo, base)
+    unattributed: list[str] = []
+    for path in changed:
+        if _plausible(path, prefixes, handled, touches):
+            manifest.add(path)
+        else:
+            unattributed.append(path)
+
+    exec_data["planId"] = plan.get("id") or exec_data.get("planId") or ""
+    exec_data["baseSha"] = base
+    exec_data["manifest"] = sorted(manifest)
+    exec_data["unattributed"] = sorted(unattributed)
+    exec_data["updatedAt"] = datetime.datetime.utcnow().isoformat() + "Z"
+    save(exec_path, exec_data)
+    return sorted(unattributed)
+
+
+def verify_attribution(exec_path: str, plan_path: str, repo: str) -> list[str]:
+    """Non-mutating check that every working-tree change is plan-attributable.
+
+    Used by the runner's git-safety gate before starting a run and before
+    committing. Returns the non-attributable paths (empty when safe).
+    """
+    exec_data = load(exec_path) if os.path.isfile(exec_path) else {}
+    if not isinstance(exec_data, dict):
+        exec_data = {}
+    plan = load(plan_path)
+
+    base = exec_data.get("baseSha") or ""
+    if not base:
+        heads = _git(repo, "rev-parse", "HEAD")
+        base = heads[0] if heads else ""
+    if not base:
+        return ["(no base revision and no reachable HEAD)"]
+
+    manifest = set(exec_data.get("manifest", []) or [])
+    prefixes = _module_prefixes(plan)
+    touches = _touches_deps(prefixes)
+
+    unattributed = [
+        path
+        for path in _changed_paths(repo, base)
+        if not _plausible(path, prefixes, manifest, touches)
+    ]
+    return sorted(unattributed)
+
+
+def debt_resolve_by_plan(debt_dir: str, plan_id: str) -> list[str]:
+    """Close every OPEN debt record owned by the given source plan."""
+    import datetime
+
+    if not os.path.isdir(debt_dir):
+        return []
+    stamp = datetime.datetime.utcnow().isoformat() + "Z"
+    closed: list[str] = []
+    for name in sorted(os.listdir(debt_dir)):
+        meta_path = os.path.join(debt_dir, name, "meta.json")
+        if not os.path.exists(meta_path):
+            continue
+        debt = load(meta_path)
+        if not isinstance(debt, dict) or debt.get("status") != "OPEN":
+            continue
+        if debt.get("sourcePlan") != plan_id:
+            continue
+        debt["status"] = "CLOSED"
+        debt["resolvedAt"] = stamp
+        save(meta_path, debt)
+        with open(os.path.join(debt_dir, name, "debt.md"), "w", encoding="utf-8") as handle:
+            handle.write(debt_markdown(debt))
+        closed.append(str(debt.get("id", name)))
+    return closed
+
+
 def run_markdown(run: dict) -> str:
     lines = [f"# Run {run.get('runId', '')}", ""]
     lines.append(f"- **Started:** {run.get('startedAt', '')}")
@@ -451,6 +616,23 @@ def main() -> int:
             len(sys.argv) > 7 and sys.argv[7] == "true",
         )
         for debt_id in created:
+            print(debt_id)
+        return 0
+
+    if op == "capture-execution":
+        unattributed = capture_execution(path, sys.argv[3], sys.argv[4])
+        for item in unattributed:
+            print(item)
+        return 0 if not unattributed else 1
+
+    if op == "verify-attribution":
+        unattributed = verify_attribution(path, sys.argv[3], sys.argv[4])
+        for item in unattributed:
+            print(item)
+        return 0 if not unattributed else 1
+
+    if op == "debt-resolve-by-plan":
+        for debt_id in debt_resolve_by_plan(path, sys.argv[3]):
             print(debt_id)
         return 0
 

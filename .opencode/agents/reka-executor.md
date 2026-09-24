@@ -67,8 +67,29 @@ result file path. Read:
 
 - the active plan (`plan.json` and `plan.md`)
 - `.reka-agent/state.json`
+- `.reka-agent/plans/<PLAN_ID>/execution.json` (plan-owned base revision + file
+  manifest; only the runner writes it)
 - every open `.reka-agent/debt/*/meta.json`
 - the relevant repository files and documentation
+
+## Recovery and resumption
+
+You may be resuming a plan an earlier executor session left unfinished — very
+often because that session crashed or was killed mid-work. The filesystem is
+the source of truth. Before reading anything else:
+
+1. Run `git status --short` and `git diff --stat`. These are read-only and
+   always allowed.
+2. The dirty working tree is plan-owned progress from the interrupted session.
+   Do NOT discard it, revert it, or treat it as human work. The runner already
+   verified that every changed path is attributable to the active plan before
+   it started you.
+3. Read `execution.json` for this plan: its `manifest` lists every file path the
+   plan already owns, and its `baseSha` is the revision the plan departed from.
+4. Inspect the existing implementation of each plan step before editing it.
+   A file already present and correct is completed work — do not recreate it.
+5. Continue from the current state and finish only the remaining work. Do not
+   redo completed steps without evidence they are wrong.
 
 ## Your job
 
@@ -85,8 +106,16 @@ inspect -> implement -> test -> update docs
 - Update documentation when behavior or architecture changes.
 - Run the focused verification the plan specifies, then broader checks when
   practical. Read the actual output. Never fabricate a passing result.
-- If a previous session started this plan, determine what is already done from
-  the filesystem and continue; do not redo completed work blindly.
+- Never discard or overwrite existing plan-scoped work; resume from it.
+
+## Completion requirement
+
+Your run is only successful when you write a valid, complete result file to the
+exact path printed by the runner. A model/tool failure after you made changes
+is expected to leave the working tree dirty — write your result artifact as the
+final step of a successful run and never claim success without it. If you are
+close to a hard stop, write `PARTIAL` with precise `remaining` instead of
+claiming completion you cannot back up.
 
 ## Honesty rules
 

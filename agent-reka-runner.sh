@@ -277,6 +277,69 @@ materialize_debt_from_result() {
 }
 
 # ---------------------------------------------------------------------------
+# Plan-scoped execution snapshot (recovery ownership)
+#
+# Every execution phase records - inside the plan directory, next to the plan
+# itself - the base revision the executor started from and the manifest of file
+# paths the plan now owns. An interrupted session therefore leaves a durable
+# record of where it got to and which dirty paths belong to the plan, so the
+# next run can resume safely without blindly trusting the whole working tree.
+# ---------------------------------------------------------------------------
+
+execution_file() { printf '%s/execution.json' "$PLAN_DIR"; }
+
+plan_artifact_present() { [ -n "$PLAN_JSON" ] && [ -f "$PLAN_JSON" ]; }
+
+seed_execution_metadata() {
+  # Lock the base revision when a plan becomes ACTIVE. Existing metadata from
+  # an interrupted execution are preserved so a resume does not lose ownership.
+  plan_artifact_present || return 0
+  local exec_file
+  exec_file="$(execution_file)"
+  if [ ! -f "$exec_file" ]; then
+    jset "$exec_file" planId "$PLAN_ID"
+    jset "$exec_file" manifest "[]"
+    jset "$exec_file" unattributed "[]"
+    jsetstr "$exec_file" baseSha "$(git -C "$REPO_ROOT" rev-parse HEAD)"
+  fi
+}
+
+capture_execution_state() {
+  # Persist which working-tree changes now belong to the plan. The capture is
+  # performed after every executor/fixer session, success or failure, so a
+  # crash never loses the executed portion of the plan.
+  plan_artifact_present || return 0
+  seed_execution_metadata
+  local exec_file unattributed
+  exec_file="$(execution_file)"
+  unattributed="$("$PY" "$JSON_HELPER" capture-execution "$exec_file" "$PLAN_JSON" "$REPO_ROOT" 2>&1)"
+  if [ -n "$unattributed" ]; then
+    log "WARN: plan $PLAN_ID now includes changes not attributable to it; next run using this plan will stop"
+    printf '%s\n' "$unattributed" | sed 's/^/    /'
+  fi
+}
+
+# Returns 0 when every current working-tree change is attributable to the
+# active plan; prints the offending paths and returns 1 otherwise.
+plan_attribution_clean() {
+  plan_artifact_present || return 0
+  local exec_file base unmatched
+  exec_file="$(execution_file)"
+  base="$(jget "$exec_file" baseSha 2>/dev/null)"
+  [ -n "$base" ] || base="$(git -C "$REPO_ROOT" rev-parse HEAD)"
+  if [ -f "$exec_file" ]; then
+    unmatched="$("$PY" "$JSON_HELPER" verify-attribution "$exec_file" "$PLAN_JSON" "$REPO_ROOT" 2>/dev/null)"
+  else
+    unmatched="$("$PY" "$JSON_HELPER" verify-attribution - "$PLAN_JSON" "$REPO_ROOT" 2>/dev/null)"
+  fi
+  if [ -n "$unmatched" ]; then
+    printf '%s\n' "$unmatched"
+    return 1
+  fi
+  return 0
+}
+
+# ---------------------------------------------------------------------------
 # Locking
 # ---------------------------------------------------------------------------
 
@@ -367,6 +430,27 @@ check_git_safety() {
     log "STOP: dirty working tree with no active work to recover"
     printf '%s\n' "$dirty" | sed 's/^/    /'
     return 1
+  fi
+
+  # With an active plan, every dirty path must be attributable to that plan
+  # (its persisted execution manifest or its affectedModules). Unattributable
+  # changes are presumed to be human work and stop the run. Plan-owned partial
+  # work is never treated as human work.
+  local pid pdir
+  pid="$(state_get activePlanId)"
+  pdir="$(state_get activePlanDir)"
+  if [ -n "$pid" ] && [ -n "$pdir" ] && [ -f "$pdir/plan.json" ]; then
+    local unmatched
+    if [ -f "$pdir/execution.json" ]; then
+      unmatched="$("$PY" "$JSON_HELPER" verify-attribution "$pdir/execution.json" "$pdir/plan.json" "$REPO_ROOT" 2>/dev/null)"
+    else
+      unmatched="$("$PY" "$JSON_HELPER" verify-attribution - "$pdir/plan.json" "$REPO_ROOT" 2>/dev/null)"
+    fi
+    if [ -n "$unmatched" ]; then
+      log "STOP: working tree contains changes not attributable to the active autonomous plan $pid"
+      printf '%s\n' "$unmatched" | sed 's/^/    /'
+      return 1
+    fi
   fi
 
   log "recovery: adopting a dirty working tree from an interrupted phase ($phase)"
@@ -613,6 +697,7 @@ adopt_plan() {
   state_set_active_plan "$PLAN_ID" "$PLAN_DIR" ACTIVE
   state_set_review_loop 0
   state_set_phase EXECUTING
+  seed_execution_metadata
   jsetstr "$RUN_JSON" planId "$PLAN_ID"
   run_note "resumed existing plan $PLAN_ID"
   log "plan resumed: $PLAN_ID - $(jget "$PLAN_JSON" goal)"
@@ -693,6 +778,7 @@ do_plan() {
     state_set_active_plan "$PLAN_ID" "$PLAN_DIR" ACTIVE
     state_set_review_loop 0
     state_set_phase EXECUTING
+    seed_execution_metadata
     jsetstr "$RUN_JSON" planId "$PLAN_ID"
     log "plan created: $PLAN_ID - $(jget "$PLAN_JSON" goal)"
     return 0
@@ -733,16 +819,20 @@ Run ID: $RUN_ID
 Plan ID: $PLAN_ID
 Plan directory: $PLAN_DIR
 Result file (required): $result_file
+Execution snapshot: $PLAN_DIR/execution.json (plan-owned base revision + file manifest)
 
 Open debt:
 $(debt_summary)
 Continue from the current filesystem state. A previous session may have
-completed part of the work. Read the plan, the state and the repository, then
-implement the plan, test it and update documentation.
+completed part of the work. Read the plan, the state, the execution snapshot
+and the repository, then implement the plan, test it and update documentation.
+Treat the dirty working tree as plan-owned progress unless the snapshot says
+otherwise; inspect git status/diff first and do not discard existing work.
 
 Do NOT commit. Do NOT push. Write your result as JSON to the result file above
 matching the schema in your instructions. If you cannot finish, report PARTIAL
-and describe exactly what remains.
+and describe exactly what remains. Your result file is the only evidence of
+completion; without it the runner cannot move to review.
 EOF
 }
 
@@ -764,6 +854,9 @@ do_execute() {
   [ "$code" -eq 124 ] && timed_out=true
   bump_session_budget "$PHASE_TOKENS" "$PHASE_COST" "$execution"
   record_phase EXECUTING reka-executor "$REKA_MODEL_EXECUTOR" "$code" "$timed_out" "plan $PLAN_ID"
+  # Persist the plan-owned changes before evaluating the session, so even a
+  # crash without a result file leaves a durable recovery record.
+  capture_execution_state
 
   if phase_failed "$code"; then
     materialize_debt_from_result "$result_file" "$PLAN_ID" "Execution interrupted" "execution session ended with exit $code"
@@ -977,6 +1070,16 @@ finalize_plan_after_pass() {
   if [ -z "$dirty" ]; then
     log "no file changes to commit; marking plan complete"
   else
+    # Final ownership gate: refuse to commit any path that cannot be
+    # attributed to this plan (a human may have edited the tree since review).
+    local unmatched
+    unmatched="$(plan_attribution_clean)"
+    if [ -n "$unmatched" ]; then
+      log "STOP: refusing to commit changes not attributable to plan $PLAN_ID"
+      printf '%s\n' "$unmatched" | sed 's/^/    /'
+      state_set_blocked "changes not attributable to the plan at commit time"
+      return 1
+    fi
     local message
     message="$(commit_message_for_plan)"
     git -C "$REPO_ROOT" add -A
@@ -1013,6 +1116,13 @@ finalize_plan_after_pass() {
     jsetstr "$PLAN_JSON" completedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   fi
   state_clear_active_plan
+  # The plan's work is done; close any OPEN debt it created so it cannot
+  # spur an EXECUTING phase later.
+  local resolved
+  resolved="$("$PY" "$JSON_HELPER" debt-resolve-by-plan "$DEBT_DIR" "$PLAN_ID" 2>/dev/null)"
+  if [ -n "$resolved" ]; then
+    log "plan debt closed: $(printf '%s' "$resolved" | tr '\n' ' ')"
+  fi
   state_set_review_loop 0
   state_set_phase COMPLETE
   TASKS_COMPLETED=$((TASKS_COMPLETED + 1))
@@ -1063,6 +1173,7 @@ do_fix() {
   [ "$code" -eq 124 ] && timed_out=true
   bump_session_budget "$PHASE_TOKENS" "$PHASE_COST" 1
   record_phase FIXING reka-fixer "$REKA_MODEL_FIXER" "$code" "$timed_out" "review $(state_review_loop)"
+  capture_execution_state
 
   if phase_failed "$code" || ! jvalidate "$result_file"; then
     materialize_debt_from_result "$result_file" "$PLAN_ID" "Fixing incomplete" "fixer session ended without a valid result"
