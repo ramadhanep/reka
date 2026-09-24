@@ -98,7 +98,15 @@ HTTP request
  -> notification job
 ```
 
-This becomes especially valuable once background workers and external integrations exist.
+This becomes especially valuable once external integrations exist.
+
+## Background Jobs
+
+Background jobs run in `apps/worker` and are backed by PostgreSQL (no broker;
+see [ADR 0006](./adr/0006-postgresql-jobs.md)). The first recurring job is the
+auth-hygiene cleanup (`ops.auth-cleanup`, default 24h interval), scheduled
+from the API bootstrap. Job duration, failure count, and queue depth are the
+candidate metrics for this path.
 
 ## Logging Rules
 

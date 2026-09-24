@@ -87,8 +87,8 @@ Employee
 
 ## Stage 5 — Operational Foundation
 
-- background worker
-- postgres-backed jobs
+- background worker [COMPLETED]
+- postgres-backed jobs [COMPLETED]
 - health/readiness
 - structured logging
 - request IDs

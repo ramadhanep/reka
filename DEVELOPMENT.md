@@ -44,6 +44,19 @@ Environment defaults in `packages/config` target the local Docker PostgreSQL, so
 `.env` file is required for the default development flow. Override via `.env` or shell
 environment when needed.
 
+## Worker
+
+Background jobs run in `apps/worker`, backed by the PostgreSQL jobs table. No extra
+infrastructure is required.
+
+```bash
+pnpm --filter @reka/worker dev       # run the worker with file watching
+pnpm --filter @reka/worker test      # run worker integration tests
+```
+
+Recurring job intervals are configured via environment variables where applicable
+(for example `AUTH_CLEANUP_INTERVAL_MS`, default 24h).
+
 ## Environment
 
 Use:

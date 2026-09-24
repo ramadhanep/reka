@@ -1,6 +1,7 @@
 import { getConfig, type LogLevel } from '@reka/config'
 import { createDatabase, pingDatabase, type Database } from '@reka/database'
-import { createJobWorker } from '@reka/jobs'
+import { AUTH_CLEANUP_JOB, createJobWorker } from '@reka/jobs'
+import { createAuthCleanupHandler } from './handlers/auth-cleanup.js'
 
 function jsonLog(level: LogLevel, message: string, fields: Record<string, unknown> = {}): void {
   const line = JSON.stringify({
@@ -41,6 +42,9 @@ async function run(): Promise<void> {
       'ops.noop': async () => {
         jsonLog('info', 'executing ops.noop')
       },
+      // Recurring auth-hygiene job: deletes expired sessions and activation
+      // tokens, then re-enqueues itself for the next run.
+      [AUTH_CLEANUP_JOB]: createAuthCleanupHandler(database, AUTH_CLEANUP_INTERVAL_MS, jsonLog),
     },
     logger: (level, message, fields) => {
       jsonLog(level as LogLevel, message, fields ?? {})
@@ -68,6 +72,7 @@ const WORKER_ID = `worker-${process.pid}`
 const POLL_INTERVAL_MS = Number(process.env.WORKER_POLL_INTERVAL_MS ?? 1000)
 const BATCH_SIZE = Number(process.env.WORKER_BATCH_SIZE ?? 10)
 const LOCK_TIMEOUT_MS = Number(process.env.WORKER_LOCK_TIMEOUT_MS ?? 5 * 60 * 1000)
+const AUTH_CLEANUP_INTERVAL_MS = Number(process.env.AUTH_CLEANUP_INTERVAL_MS ?? 24 * 60 * 60 * 1000)
 
 void run().catch((error) => {
   const message = error instanceof Error ? (error.stack ?? error.message) : String(error)
