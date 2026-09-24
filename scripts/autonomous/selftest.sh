@@ -559,6 +559,38 @@ JSON
   assert_eq "0" "$rc" "clean tree passes attribution with exit 0"
   assert_eq "" "$(cat "$meta/out.txt")" "clean tree flags nothing"
 
+  # 'docs (ROADMAP.md, DEVELOPMENT.md, ...)' convention: parenthesized exact
+  # paths are owned even though they live outside the directory prefix.
+  git -C "$repo" add -A
+  git -C "$repo" commit -q -m "first scenario"
+  printf 'docs\n' >"$repo/ROADMAP.md"
+  printf 'docs\n' >"$repo/DEVELOPMENT.md"
+  mkdir -p "$repo/docs"
+  printf 'docs\n' >"$repo/docs/observability.md"
+  cat >"$meta/docsplan.json" <<'JSON'
+{
+  "id": "P2",
+  "status": "ACTIVE",
+  "goal": "g",
+  "whyNow": "w",
+  "scope": ["s"],
+  "nonGoals": [],
+  "affectedModules": ["docs (ROADMAP.md, DEVELOPMENT.md, docs/observability.md)"],
+  "dependencies": [],
+  "implementationSteps": ["i"],
+  "testingStrategy": "t",
+  "definitionOfDone": ["d"],
+  "risks": ["r"],
+  "complexity": "S",
+  "requiresHumanDecision": false,
+  "humanDecision": ""
+}
+JSON
+  "$PY" "$HELPER" verify-attribution - "$meta/docsplan.json" "$repo" >"$meta/docsout.txt" 2>&1
+  rc=$?
+  assert_eq "0" "$rc" "parenthesized doc files are attributed"
+  assert_eq "" "$(cat "$meta/docsout.txt")" "doc parenthesized paths flag nothing"
+
   rm -rf "$tmp"
 }
 

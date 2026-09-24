@@ -328,16 +328,22 @@ def _git(repo: str, *args: str) -> list[str]:
 def _module_prefixes(plan: dict) -> list[str]:
     """Normalize affectedModules entries into unambiguous path prefixes.
 
-    An entry such as 'docs (ROADMAP.md, DEVELOPMENT.md, ...)' normalizes to
-    'docs'; directory entries such as 'apps/api/test' stay as-is.
+    An entry such as 'docs (ROADMAP.md, DEVELOPMENT.md, ...)' normalizes to the
+    'docs' prefix plus each parenthesized file as an exact-path prefix; a bare
+    directory entry such as 'apps/api/test' stays as-is.
     """
     prefixes = []
     for entry in plan.get("affectedModules") or []:
         if not isinstance(entry, str):
             continue
-        entry = entry.split(" (", 1)[0].strip()
-        if entry:
-            prefixes.append(entry)
+        head, _, explicit = entry.partition(" (")
+        head = head.strip()
+        if head:
+            prefixes.append(head)
+        for item in explicit.rstrip(")").split(","):
+            item = item.strip()
+            if item:
+                prefixes.append(item)
     return prefixes
 
 
